@@ -1,0 +1,14 @@
+--- a/sapi/cli/php_cli_server.c	2024-11-20 10:48:35.000000000 +0100
++++ b/sapi/cli/php_cli_server.c	2024-12-22 10:57:52.259538832 +0100
+@@ -112,10 +112,10 @@
+ 
+ #ifdef HAVE_FORK
+ # include <sys/wait.h>
+-static pid_t	 php_cli_server_master;
+ static pid_t	*php_cli_server_workers;
+ static zend_long php_cli_server_workers_max;
+ #endif
++static pid_t	 php_cli_server_master;
+ 
+ static zend_string* cli_concat_persistent_zstr_with_char(zend_string *old_str, const char *at, size_t length);
+ 

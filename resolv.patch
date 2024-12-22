@@ -1,0 +1,10 @@
+--- a/ext/standard/dns.c	2024-12-22 11:21:19.586250174 +0100
++++ b/ext/standard/dns.c	2024-12-22 11:22:52.939586482 +0100
+@@ -46,6 +46,7 @@
+ #endif
+ #ifdef HAVE_RESOLV_H
+ #include <resolv.h>
++#include <resolv_private.h>
+ #if defined(__HAIKU__)
+ extern void __res_ndestroy(res_state statp);
+ #define res_ndestroy __res_ndestroy
