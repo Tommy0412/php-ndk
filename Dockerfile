@@ -7,4 +7,4 @@ WORKDIR /opt
 ENV NDK_VERSION android-ndk-r27c-linux
 RUN wget https://dl.google.com/android/repository/${NDK_VERSION}.zip && unzip ${NDK_VERSION}.zip && rm ${NDK_VERSION}.zip
 
-ENV PATH="$PATH:/opt/android-ndk-r27c/:android-ndk-r27c/toolchains/llvm/prebuilt/linux-x86_64/bin"
+ENV PATH="$PATH:/opt/android-ndk-r27c/:/opt/android-ndk-r27c/toolchains/llvm/prebuilt/linux-x86_64/bin"
