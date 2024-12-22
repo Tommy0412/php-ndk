@@ -22,3 +22,11 @@ RUN unzip sqlite-amalgamation-${SQLITE3_VERSION}.zip
 
 WORKDIR /root/sqlite-amalgamation-${SQLITE3_VERSION}
 RUN ${TARGET}-clang -o libsqlite3.so -shared -fPIC sqlite3.c
+
+WORKDIR /root
+ENV PHP_VERSION 8.4.2
+RUN wget https://www.php.net/distributions/php-${PHP_VERSION}.tar.gz
+RUN tar -xvf php-${PHP_VERSION}.tar.gz
+
+RUN mkdir build install
+WORKDIR /root/build
