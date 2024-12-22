@@ -1,9 +1,7 @@
-FROM archlinux:latest
+FROM alpine:3.21
 
-RUN pacman-key --init
-RUN pacman -Sy archlinux-keyring --noconfirm
-RUN pacman -Su --noconfirm
-RUN pacman -S --noconfirm wget unzip
+RUN apk update
+RUN apk add wget unzip gcompat libgcc bash
 
 WORKDIR /opt
 ENV NDK_VERSION android-ndk-r27c-linux
