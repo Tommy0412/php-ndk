@@ -28,5 +28,42 @@ ENV PHP_VERSION 8.4.2
 RUN wget https://www.php.net/distributions/php-${PHP_VERSION}.tar.gz
 RUN tar -xvf php-${PHP_VERSION}.tar.gz
 
+COPY *.patch /root/
+WORKDIR /root/php-${PHP_VERSION}
+RUN apk add patch # TODO: move up
+RUN \
+patch -p1 < ../ext-standard-dns.c.patch && \
+patch -p1 < ../resolv.patch && \
+patch -p1 < ../ext-standard-php_fopen_wrapper.c.patch && \
+patch -p1 < ../main-streams-cast.c.patch && \
+patch -p1 < ../fork.patch \
+;
+
+WORKDIR /root
 RUN mkdir build install
 WORKDIR /root/build
+
+RUN ../php-${PHP_VERSION}/configure \
+  --host=${TARGET} \
+  --disable-dom \
+  --disable-simplexml \
+  --disable-xml \
+  --disable-xmlreader \
+  --disable-xmlwriter \
+  --without-pear \
+  --without-libxml \
+  SQLITE_CFLAGS="-I/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
+  SQLITE_LIBS="-lsqlite3 -L/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
+  CC=$TARGET-clang \
+  --disable-phar \
+  --disable-phpdbg \
+  --with-sqlite3 \
+  --with-pdo-sqlite \
+  ;
+
+RUN apk add make curl # TODO: move up
+RUN \
+  for hdr in resolv_params.h resolv_private.h resolv_static.h resolv_stats.h; do \
+    curl https://android.googlesource.com/platform/bionic/+/refs/heads/android12--mainline-release/libc/dns/include/$hdr?format=TEXT | base64 -d > $hdr; \
+  done
+RUN make -j7 sapi/cli/php
