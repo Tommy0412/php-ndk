@@ -21,3 +21,5 @@ $(NOABI_PLATFORMS):
 	$(eval CONTAINER=$(shell docker create $(IMAGE_NAME):$(PHP_VERSION)-$@-api$(API_LEVEL)-$(PATCHLEVEL) /dummy))
 	docker cp $(CONTAINER):/app $(DESTDIR)
 	docker rm -f $(CONTAINER)
+
+.PHONY: $(PLATFORMS)
