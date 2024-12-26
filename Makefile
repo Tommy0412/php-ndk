@@ -1,7 +1,8 @@
+# Usage: make DESTDIR=/binary/installation/path
+DESTDIR=./
 EABI_PLATFORMS=armv7a
 NOABI_PLATFORMS=aarch64 i686 riscv64 x86_64
 PLATFORMS=$(EABI_PLATFORMS) $(NOABI_PLATFORMS)
-DESTDIR=./
 LIBDIR_PATH=app/src/main/jniLibs/
 armv7a_LIBDIR=armeabi-v7a
 aarch64_LIBDIR=arm64-v8a
