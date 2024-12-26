@@ -69,6 +69,6 @@ RUN cp /root/build/sapi/cli/php /root/install/php.so
 RUN cp /root/sqlite-amalgamation-${SQLITE3_VERSION}/libsqlite3.so /root/install/libsqlite3.so
 
 FROM scratch
-ARG TARGET=armv7a-linux-androideabi32
-ENV TARGET ${TARGET}
-COPY --from=buildsystem /root/install/* /app/src/main/jniLibs/${TARGET}/
+ARG LIBDIR
+ENV LIBDIR ${LIBDIR}
+COPY --from=buildsystem /root/install/* /app/src/main/jniLibs/${LIBDIR}/
