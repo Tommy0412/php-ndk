@@ -5,6 +5,9 @@ DESTDIR=./
 LIBDIR_PATH=app/src/main/jniLibs/
 armv7a_LIBDIR=armeabi-v7a
 aarch64_LIBDIR=arm64-v8a
+i686_LIBDIR=x86
+x86_64_LIBDIR=x86_64
+riscv64_LIBDIR=riscv64
 LIBDIRS=armv7a_LIBDIR aarch64_LIBDIR
 
 PHP_VERSION=8.4.2
