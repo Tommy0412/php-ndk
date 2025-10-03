@@ -14,7 +14,7 @@ jobs:
       SQLITE3_VERSION: 3470200
 
     steps:
-      # 1. Checkout repository
+      # 1. Checkout repo
       - uses: actions/checkout@v3
 
       # 2. Prepare output folders
@@ -23,33 +23,32 @@ jobs:
           mkdir -p php-binaries/armeabi-v7a
           mkdir -p php-binaries/arm64-v8a
 
-      # 3. Build and extract armeabi-v7a
-      - name: Build armeabi-v7a
+      # 3. Build Docker image for buildsystem stage only
+      - name: Build Docker image (buildsystem stage)
         run: |
           docker build \
-            --build-arg TARGET=armv7a-linux-androideabi32 \
-            --build-arg LIBDIR=armeabi-v7a \
-            -t php-android-builder-armeabi-v7a .
-          
+            --target buildsystem \
+            -t php-android-builder .
+
+      # 4. Copy armeabi-v7a binaries
+      - name: Extract armeabi-v7a binaries
+        run: |
           docker run --rm \
             -v ${{ github.workspace }}/php-binaries/armeabi-v7a:/output \
-            php-android-builder-armeabi-v7a \
+            -e TARGET=armv7a-linux-androideabi32 \
+            php-android-builder \
             sh -c "cp -r /root/install/* /output/"
 
-      # 4. Build and extract arm64-v8a
-      - name: Build arm64-v8a
+      # 5. Copy arm64-v8a binaries
+      - name: Extract arm64-v8a binaries
         run: |
-          docker build \
-            --build-arg TARGET=aarch64-linux-android \
-            --build-arg LIBDIR=arm64-v8a \
-            -t php-android-builder-arm64-v8a .
-          
           docker run --rm \
             -v ${{ github.workspace }}/php-binaries/arm64-v8a:/output \
-            php-android-builder-arm64-v8a \
+            -e TARGET=aarch64-linux-android \
+            php-android-builder \
             sh -c "cp -r /root/install/* /output/"
 
-      # 5. Upload binaries as artifact
+      # 6. Upload binaries as separate artifact
       - name: Upload PHP binaries
         uses: actions/upload-artifact@v4
         with:
