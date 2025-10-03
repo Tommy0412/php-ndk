@@ -27,7 +27,7 @@ jobs:
           docker run --rm \
             -v ${{ github.workspace }}/php-binaries:/output \
             php-android-builder \
-            bash -c "cp -r /root/install/* /output/"
+            sh -c "cp -r /root/install/* /output/"
 
       # 4. Upload binaries as artifacts using v4
       - name: Upload PHP binaries
