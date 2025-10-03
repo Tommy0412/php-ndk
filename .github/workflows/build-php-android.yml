@@ -32,14 +32,14 @@ jobs:
 
       # 4. Upload armeabi-v7a PHP binary
       - name: Upload armeabi-v7a PHP
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: php-armeabi-v7a
           path: app/src/main/jniLibs/armeabi-v7a/*
 
       # 5. Upload arm64-v8a PHP binary (if built)
       - name: Upload arm64-v8a PHP
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: php-arm64-v8a
           path: app/src/main/jniLibs/arm64-v8a/*
