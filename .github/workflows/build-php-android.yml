@@ -1,4 +1,4 @@
-name: Build PHP for Android
+name: Build PHP for Android with Docker
 
 on:
   push:
@@ -9,37 +9,29 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
-    env:
-      PHP_VERSION: 8.4.2
-      SQLITE3_VERSION: 3470200
-
     steps:
-      # 1. Checkout repo
+      # 1. Checkout repository
       - uses: actions/checkout@v3
 
-      # 2. Build Docker image
+      # 2. Build Docker image from your Dockerfile
       - name: Build Docker image
         run: |
           docker build -t php-android-builder .
 
-      # 3. Run build inside Docker
-      - name: Run PHP build
+      # 3. Run Docker container and copy out built binaries
+      - name: Extract built binaries
         run: |
+          mkdir -p php-binaries/armeabi-v7a
+          mkdir -p php-binaries/arm64-v8a
+          # Run container and copy files to mounted folder
           docker run --rm \
-            -v ${{ github.workspace }}:/workspace \
+            -v ${{ github.workspace }}/php-binaries:/output \
             php-android-builder \
-            bash -c "echo Build completed inside container"
+            bash -c "cp -r /root/install/* /output/"
 
-      # 4. Upload armeabi-v7a PHP binary
-      - name: Upload armeabi-v7a PHP
+      # 4. Upload binaries as artifacts using v4
+      - name: Upload PHP binaries
         uses: actions/upload-artifact@v4
         with:
-          name: php-armeabi-v7a
-          path: app/src/main/jniLibs/armeabi-v7a/*
-
-      # 5. Upload arm64-v8a PHP binary (if built)
-      - name: Upload arm64-v8a PHP
-        uses: actions/upload-artifact@v4
-        with:
-          name: php-arm64-v8a
-          path: app/src/main/jniLibs/arm64-v8a/*
+          name: php-android-binaries
+          path: php-binaries/**
