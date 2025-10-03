@@ -14,43 +14,48 @@ jobs:
       SQLITE3_VERSION: 3470200
 
     steps:
-      # 1. Checkout repo
+      # 1. Checkout repository
       - uses: actions/checkout@v3
+        with:
+          persist-credentials: true
 
-      # 2. Prepare output folders
+      # 2. Prepare jniLibs output structure
       - name: Prepare output folders
         run: |
-          mkdir -p php-binaries/armeabi-v7a
-          mkdir -p php-binaries/arm64-v8a
+          mkdir -p app/src/main/jniLibs/armeabi-v7a
+          mkdir -p app/src/main/jniLibs/arm64-v8a
 
-      # 3. Build Docker image for buildsystem stage only
-      - name: Build Docker image (buildsystem stage)
-        run: |
-          docker build \
-            --target buildsystem \
-            -t php-android-builder .
+      # 3. Build Docker image (builder stage only)
+      - name: Build Docker image
+        run: docker build --target buildsystem -t php-android-builder .
 
-      # 4. Copy armeabi-v7a binaries
+      # 4. Extract armeabi-v7a binaries
       - name: Extract armeabi-v7a binaries
         run: |
           docker run --rm \
-            -v ${{ github.workspace }}/php-binaries/armeabi-v7a:/output \
+            -v ${{ github.workspace }}/app/src/main/jniLibs/armeabi-v7a:/output \
             -e TARGET=armv7a-linux-androideabi32 \
             php-android-builder \
-            sh -c "cp -r /root/install/* /output/"
+            sh -c "cp /root/install/lib/libphp.so /output/php.so && cp /root/install/lib/libsqlite3.so /output/libsqlite3.so"
 
-      # 5. Copy arm64-v8a binaries
+      # 5. Extract arm64-v8a binaries
       - name: Extract arm64-v8a binaries
         run: |
           docker run --rm \
-            -v ${{ github.workspace }}/php-binaries/arm64-v8a:/output \
+            -v ${{ github.workspace }}/app/src/main/jniLibs/arm64-v8a:/output \
             -e TARGET=aarch64-linux-android \
             php-android-builder \
-            sh -c "cp -r /root/install/* /output/"
+            sh -c "cp /root/install/lib/libphp.so /output/php.so && cp /root/install/lib/libsqlite3.so /output/libsqlite3.so"
 
-      # 6. Upload binaries as separate artifact
-      - name: Upload PHP binaries
-        uses: actions/upload-artifact@v4
-        with:
-          name: php-android-binaries
-          path: php-binaries/**
+      # 6. Commit binaries into repo
+      - name: Commit JNI binaries
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/jniLibs/
+          if ! git diff --cached --quiet; then
+            git commit -m "Update JNI binaries (php.so, libsqlite3.so)"
+            git push origin HEAD:main
+          else
+            echo "No changes to commit"
+          fi
