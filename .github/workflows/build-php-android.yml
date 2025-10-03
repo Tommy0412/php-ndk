@@ -1,0 +1,45 @@
+name: Build PHP for Android
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    env:
+      PHP_VERSION: 8.4.2
+      SQLITE3_VERSION: 3470200
+
+    steps:
+      # 1. Checkout repo
+      - uses: actions/checkout@v3
+
+      # 2. Build Docker image
+      - name: Build Docker image
+        run: |
+          docker build -t php-android-builder .
+
+      # 3. Run build inside Docker
+      - name: Run PHP build
+        run: |
+          docker run --rm \
+            -v ${{ github.workspace }}:/workspace \
+            php-android-builder \
+            bash -c "echo Build completed inside container"
+
+      # 4. Upload armeabi-v7a PHP binary
+      - name: Upload armeabi-v7a PHP
+        uses: actions/upload-artifact@v3
+        with:
+          name: php-armeabi-v7a
+          path: app/src/main/jniLibs/armeabi-v7a/*
+
+      # 5. Upload arm64-v8a PHP binary (if built)
+      - name: Upload arm64-v8a PHP
+        uses: actions/upload-artifact@v3
+        with:
+          name: php-arm64-v8a
+          path: app/src/main/jniLibs/arm64-v8a/*
