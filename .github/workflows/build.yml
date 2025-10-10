@@ -1,0 +1,39 @@
+name: Build PHP for Android (ARM32 + ARM64)
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build PHP binaries (arm32 + arm64)
+        run: |
+          echo "Starting Docker build..."
+          docker build -t php-ndk .
+          echo "Running Makefile..."
+          docker run --rm -v ${{ github.workspace }}:/src php-ndk make all
+
+      - name: List output files
+        run: |
+          echo "Listing build results..."
+          find . -type f \( -name "php" -o -name "*.so" \)
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: php-android-binaries
+          path: |
+            **/php
+            **/*.so
