@@ -15,15 +15,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx
+      - name: Set up Docker
         uses: docker/setup-buildx-action@v3
 
-      - name: Build PHP binaries (arm32 + arm64)
+      - name: Build PHP for Android
         run: |
-          echo "Starting Docker build..."
-          docker build -t php-ndk .
-          echo "Running Makefile..."
-          docker run --rm -v ${{ github.workspace }}:/src php-ndk make all
+          echo "Running make using Docker (handled inside Makefile)..."
+          make all
 
       - name: List output files
         run: |
