@@ -18,13 +18,19 @@ jobs:
           echo "Building PHP for Android..."
           docker build -t php-ndk .
           CONTAINER_ID=$(docker create php-ndk)
-          docker cp "$CONTAINER_ID:/root/install" ./install
+          mkdir -p ./install
+          docker cp "$CONTAINER_ID:/app/src/main/jniLibs/arm64-v8a" ./install/jniLibs/arm64-v8a
           docker rm "$CONTAINER_ID"
-          echo "=== Contents of /root/install ==="
+          echo "=== Contents of ./install ==="
           ls -R ./install || true
+          if [ -z "$(ls -A ./install)" ]; then
+            echo "Error: ./install directory is empty"
+            exit 1
+          fi
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: php-android-build
-          path: ./install/*
+          path: ./install/
+          retention-days: 7
