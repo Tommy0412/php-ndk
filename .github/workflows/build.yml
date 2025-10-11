@@ -16,9 +16,9 @@ jobs:
       - name: Build PHP using Dockerfile
         run: |
           echo "Building PHP for Android..."
-          docker build -t php-ndk .
+          docker build --build-arg LIBDIR=arm64-v8a -t php-ndk .
           CONTAINER_ID=$(docker create php-ndk)
-          mkdir -p ./install
+          mkdir -p ./install/jniLibs/arm64-v8a
           docker cp "$CONTAINER_ID:/app/src/main/jniLibs/arm64-v8a" ./install/jniLibs/arm64-v8a
           docker rm "$CONTAINER_ID"
           echo "=== Contents of ./install ==="
@@ -34,3 +34,18 @@ jobs:
           name: php-android-build
           path: ./install/
           retention-days: 7
+
+      - name: Create GitHub Release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ github.run_number }}
+          name: PHP Android Build ${{ github.run_number }}
+          body: |
+            Automated build of PHP for Android (ARM64).
+            Includes php.so and libsqlite3.so.
+          files: |
+            ./install/jniLibs/arm64-v8a/php.so
+            ./install/jniLibs/arm64-v8a/libsqlite3.so
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
