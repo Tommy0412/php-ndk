@@ -1,4 +1,4 @@
-name: Docker Build and Release Asset
+name: Build Artifact and Release ZIP
 
 on:
   push:
@@ -10,10 +10,10 @@ on:
       - 'v*.*.*'
 
 jobs:
-  build_and_release:
+  build_and_package:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: write # Needed for uploading the release asset
     
     steps:
     - name: Checkout repository
@@ -21,33 +21,56 @@ jobs:
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
+    
+    # ----------------------------------------------------
+    # 1. BUILD THE DOCKERFILE (targeting the 'buildsystem' stage)
+    # This step only builds the image; it does not load it or push it.
+    # ----------------------------------------------------
+    - name: Build 'buildsystem' stage only
+      # We tag the image for easy referencing
+      run: |
+        docker build -t php-ndk-builder:latest --target buildsystem .
 
-    # --- Build the Docker Image ---
-    - name: Build Docker image and load to Docker daemon
-      uses: docker/build-push-action@v5
-      with:
-        context: .
-        file: ./Dockerfile
-        push: false
-        tags: php-ndk-image:latest 
-        load: true
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
+    # ----------------------------------------------------
+    # 2. EXTRACT ARTIFACTS from the built image
+    # We create a temporary container and copy the files out.
+    # ----------------------------------------------------
+    - name: Extract Compiled Binaries and Headers
+      run: |
+        # a. Create a temporary container from the builder image
+        CONTAINER_ID=$(docker create php-ndk-builder:latest)
+        
+        # b. Copy the compiled binaries to the runner's workspace
+        # These were located at /root/install in the Dockerfile
+        docker cp $CONTAINER_ID:/root/install ./release-package/binaries
+        
+        # c. Copy the required headers (PHP source)
+        # These were located at /root/php-8.4.2 in the Dockerfile
+        docker cp $CONTAINER_ID:/root/php-8.4.2 ./release-package/includes/php
+        
+        # d. Remove the temporary container
+        docker rm $CONTAINER_ID
 
-    # --- Save the Image as a Tar Archive (CONDITIONAL) ---
-    - name: Save Docker image as tar
-      # CRITICAL FIX: Only run this step if the workflow was triggered by a tag
+    # ----------------------------------------------------
+    # 3. ZIP AND UPLOAD (Conditional on Tag)
+    # ----------------------------------------------------
+    - name: Archive and Upload Release Asset
       if: startsWith(github.ref, 'refs/tags/')
       run: |
-        docker save php-ndk-image:latest -o php-ndk-image.tar
-
-    # --- Upload the Tar Archive to the Release (CONDITIONAL) ---
+        # Create a clean ZIP file for release
+        zip -r php-ndk-artifacts.zip release-package
+      
     - name: Upload Release Asset
       id: upload-asset 
-      # CRITICAL FIX: Only run this step if the workflow was triggered by a tag
       if: startsWith(github.ref, 'refs/tags/')
       uses: softprops/action-gh-release@v2
       with:
-        files: php-ndk-image.tar 
+        files: php-ndk-artifacts.zip 
         body: |
-          Docker image archive for release ${{ github.ref_name }}.
+          Cross-compiled PHP 8.4.2 and SQLite 3 for Android NDK.
+          
+          Contents:
+          - binaries/php.so (Compiled PHP SAPI)
+          - binaries/libsqlite3.so (Compiled SQLite library)
+          - includes/php/ (Full PHP source tree and headers for linking)
+        overwrite: true
