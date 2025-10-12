@@ -5,9 +5,14 @@ RUN apk add wget unzip gcompat libgcc bash patch make curl
 
 WORKDIR /opt
 ENV NDK_VERSION android-ndk-r27c-linux
-RUN wget https://dl.google.com/android/repository/${NDK_VERSION}.zip && unzip ${NDK_VERSION}.zip && rm ${NDK_VERSION}.zip
+ENV NDK_ROOT /opt/android-ndk-r27c
+RUN wget https://dl.google.com/android/repository/${NDK_VERSION}.zip && \
+    unzip ${NDK_VERSION}.zip && \
+    rm ${NDK_VERSION}.zip && \
+    mv /opt/android-ndk-r27c ${NDK_ROOT} # Ensure NDK is moved to the defined path
 
-ENV PATH="$PATH:/opt/android-ndk-r27c/:/opt/android-ndk-r27c/toolchains/llvm/prebuilt/linux-x86_64/bin"
+# CRITICAL FIX: Add the LLVM toolchain bin directory to the PATH
+ENV PATH="${NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH"
 
 WORKDIR /root
 
@@ -22,6 +27,7 @@ RUN wget https://www.sqlite.org/2024/sqlite-amalgamation-${SQLITE3_VERSION}.zip
 RUN unzip sqlite-amalgamation-${SQLITE3_VERSION}.zip
 
 WORKDIR /root/sqlite-amalgamation-${SQLITE3_VERSION}
+# This command should now find the compiler due to the fixed PATH
 RUN ${TARGET}-clang -o libsqlite3.so -shared -fPIC sqlite3.c
 
 WORKDIR /root
@@ -42,6 +48,7 @@ WORKDIR /root
 RUN mkdir build install
 WORKDIR /root/build
 
+# Using CC=$TARGET-clang relies on the fixed PATH
 RUN ../php-${PHP_VERSION}/configure \
   --host=${TARGET} \
   --disable-dom \
