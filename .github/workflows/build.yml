@@ -15,33 +15,44 @@ jobs:
 
       - name: Build PHP using Dockerfile
         run: |
-          echo "Building PHP for Android (ARM64)..."
+          echo "Building PHP for Android (ARM64) with Tommy0412/php-ndk Dockerfile..."
           docker build \
             --build-arg TARGET=aarch64-linux-android \
             --build-arg LIBDIR=arm64-v8a \
-            -t php-ndk-arm64 .
+            -t php-ndk-arm64 \
+            .
           
-          # Debug: Check buildsystem stage for /root/install
+          # Debug: Check /root/install in buildsystem stage
           echo "=== Debugging: Files in /root/install (buildsystem stage) ==="
-          docker build --target buildsystem --build-arg TARGET=aarch64-linux-android --build-arg LIBDIR=arm64-v8a -t php-debug .
-          docker run --rm php-debug ls -la /root/install || echo "No files in /root/install"
+          docker build \
+            --target buildsystem \
+            --build-arg TARGET=aarch64-linux-android \
+            --build-arg LIBDIR=arm64-v8a \
+            -t php-debug \
+            .
+          docker run --rm php-debug sh -c 'ls -la /root/install || echo "ERROR: No files in /root/install!"'
           
-          # Extract from final image
+          # Extract files from final scratch image
+          echo "=== Extracting from /app/src/main/jniLibs/arm64-v8a ==="
           mkdir -p ./install/jniLibs/arm64-v8a
           docker run --rm php-ndk-arm64 tar cf - /app/src/main/jniLibs/arm64-v8a/ | tar xf - -C ./install/jniLibs/ || {
-            echo "ERROR: Failed to extract /app/src/main/jniLibs/arm64-v8a. Checking if dir exists..."
-            docker run --rm php-ndk-arm64 sh -c 'ls -la /app/src/main/jniLibs/arm64-v8a || echo "Dir not found in image!"'
+            echo "ERROR: Failed to extract /app/src/main/jniLibs/arm64-v8a. Possible causes:"
+            echo "1. /app/src/main/jniLibs/arm64-v8a missing in image."
+            echo "2. LIBDIR not set to arm64-v8a (got: $LIBDIR)."
+            echo "3. COPY --from=buildsystem /root/install/* failed."
             exit 1
           }
           
+          # Verify extracted files
           echo "=== Contents of ./install ==="
           ls -laR ./install
           if [ ! -f "./install/jniLibs/arm64-v8a/php.so" ] || [ ! -f "./install/jniLibs/arm64-v8a/libsqlite3.so" ]; then
             echo "ERROR: Missing php.so or libsqlite3.so in ./install/jniLibs/arm64-v8a!"
             exit 1
           fi
-          echo "SUCCESS: Found .so files. Sizes:"
+          echo "SUCCESS: Found .so files. Details:"
           du -sh ./install/jniLibs/arm64-v8a/*.so
+          file ./install/jniLibs/arm64-v8a/*.so
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -57,10 +68,11 @@ jobs:
           tag_name: v${{ github.run_number }}-arm64
           name: PHP 8.4.2 Android ARM64 Build
           body: |
-            PHP 8.4.2 for Android ARM64.
+            PHP 8.4.2 compiled for Android ARM64 (aarch64) using Tommy0412/php-ndk Dockerfile.
             - php.so: CLI engine
             - libsqlite3.so: SQLite support
-            Build #${{ github.run_number }}
+            Build #${{ github.run_number }} | Commit: ${{ github.sha }}
+            Built for Jesus, the lawn-mowing king.
           files: |
             ./install/jniLibs/arm64-v8a/php.so
             ./install/jniLibs/arm64-v8a/libsqlite3.so
