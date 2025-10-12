@@ -30,21 +30,22 @@ jobs:
         file: ./Dockerfile
         push: false
         tags: php-ndk-image:latest 
-        # CRITICAL FIX: Load the image into the local Docker daemon so 'docker save' can find it.
         load: true
-        # Optional: Add caching for faster subsequent builds
         cache-from: type=gha
         cache-to: type=gha,mode=max
 
-    # --- Save the Image as a Tar Archive ---
+    # --- Save the Image as a Tar Archive (CONDITIONAL) ---
     - name: Save Docker image as tar
+      # CRITICAL FIX: Only run this step if the workflow was triggered by a tag
+      if: startsWith(github.ref, 'refs/tags/')
       run: |
-        # This command will now succeed because the image is in the local daemon's inventory.
         docker save php-ndk-image:latest -o php-ndk-image.tar
 
-    # --- Upload the Tar Archive to the Release ---
+    # --- Upload the Tar Archive to the Release (CONDITIONAL) ---
     - name: Upload Release Asset
       id: upload-asset 
+      # CRITICAL FIX: Only run this step if the workflow was triggered by a tag
+      if: startsWith(github.ref, 'refs/tags/')
       uses: softprops/action-gh-release@v2
       with:
         files: php-ndk-image.tar 
