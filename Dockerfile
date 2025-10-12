@@ -8,8 +8,8 @@ ENV NDK_VERSION android-ndk-r27c-linux
 ENV NDK_ROOT /opt/android-ndk-r27c
 RUN wget https://dl.google.com/android/repository/${NDK_VERSION}.zip && \
     unzip ${NDK_VERSION}.zip && \
-    rm ${NDK_VERSION}.zip && \
-    mv /opt/android-ndk-r27c ${NDK_ROOT} # Ensure NDK is moved to the defined path
+    rm ${NDK_VERSION}.zip
+# Removed: mv /opt/android-ndk-r27c ${NDK_ROOT} as it was moving the folder onto itself
 
 # CRITICAL FIX: Add the LLVM toolchain bin directory to the PATH
 ENV PATH="${NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH"
