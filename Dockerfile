@@ -9,10 +9,9 @@ ENV NDK_ROOT /opt/android-ndk-r27c
 RUN wget https://dl.google.com/android/repository/${NDK_VERSION}.zip && \
     unzip ${NDK_VERSION}.zip && \
     rm ${NDK_VERSION}.zip
-# Removed: mv /opt/android-ndk-r27c ${NDK_ROOT} as it was moving the folder onto itself
 
-# CRITICAL FIX: Add the LLVM toolchain bin directory to the PATH
-ENV PATH="${NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH"
+# CRITICAL FIX: Ensure the NDK toolchain is in the PATH
+ENV PATH="${PATH}:${NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64/bin"
 
 WORKDIR /root
 
@@ -27,7 +26,6 @@ RUN wget https://www.sqlite.org/2024/sqlite-amalgamation-${SQLITE3_VERSION}.zip
 RUN unzip sqlite-amalgamation-${SQLITE3_VERSION}.zip
 
 WORKDIR /root/sqlite-amalgamation-${SQLITE3_VERSION}
-# This command should now find the compiler due to the fixed PATH
 RUN ${TARGET}-clang -o libsqlite3.so -shared -fPIC sqlite3.c
 
 WORKDIR /root
@@ -48,7 +46,6 @@ WORKDIR /root
 RUN mkdir build install
 WORKDIR /root/build
 
-# Using CC=$TARGET-clang relies on the fixed PATH
 RUN ../php-${PHP_VERSION}/configure \
   --host=${TARGET} \
   --disable-dom \
@@ -75,7 +72,18 @@ RUN make -j7 sapi/cli/php
 RUN cp /root/build/sapi/cli/php /root/install/php.so
 RUN cp /root/sqlite-amalgamation-${SQLITE3_VERSION}/libsqlite3.so /root/install/libsqlite3.so
 
-FROM scratch
-ARG LIBDIR
-ENV LIBDIR ${LIBDIR}
-COPY --from=buildsystem /root/install/* /app/src/main/jniLibs/${LIBDIR}/
+# --- FINAL STAGE FIX ---
+# Instead of 'scratch', we use 'alpine:3.21' to give the container basic file system tools.
+# We also copy the files to a simple, predictable location: /artifacts/
+FROM alpine:3.21
+# Install minimal dependencies needed to run basic shell commands and list files
+RUN apk update && apk add --no-cache bash
+
+# Copy the final artifacts to a clear folder
+COPY --from=buildsystem /root/install/php.so /artifacts/php.so
+COPY --from=buildsystem /root/install/libsqlite3.so /artifacts/libsqlite3.so
+
+# Expose the artifacts folder
+WORKDIR /artifacts
+
+# Remove the unused ARG/ENV lines related to jniLibs/${LIBDIR}
