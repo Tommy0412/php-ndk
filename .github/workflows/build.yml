@@ -21,7 +21,13 @@ jobs:
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
-    
+      
+    # ----------------------------------------------------
+    # NEW STEP: Create the artifact directory structure
+    # ----------------------------------------------------
+    - name: Create Artifact Directory
+      run: mkdir -p release-package
+
     # ----------------------------------------------------
     # 1. BUILD THE DOCKERFILE (targeting the 'buildsystem' stage)
     # This step only builds the image; it does not load it or push it.
