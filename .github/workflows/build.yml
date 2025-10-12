@@ -13,69 +13,58 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Debug Dockerfile args
-        run: |
-          echo "Dockerfile uses TARGET=armv7a-linux-androideabi32 by default"
-          echo "Overriding to aarch64-linux-android for ARM64"
-
-      - name: Build PHP using Dockerfile (ARM64)
+      - name: Build PHP using Dockerfile
         run: |
           echo "Building PHP for Android (ARM64)..."
           docker build \
             --build-arg TARGET=aarch64-linux-android \
             --build-arg LIBDIR=arm64-v8a \
             -t php-ndk-arm64 .
-          echo "Build complete. Inspecting container..."
-
-      - name: Debug Container Contents
-        run: |
-          CONTAINER_ID=$(docker create php-ndk-arm64)
-          echo "=== Files in /app/src/main/jniLibs/arm64-v8a ==="
-          docker cp "$CONTAINER_ID:/app/src/main/jniLibs/arm64-v8a" ./temp_debug
-          ls -la ./temp_debug
-          rm -rf ./temp_debug
-          docker rm "$CONTAINER_ID"
-
-      - name: Extract .so Files
-        run: |
-          CONTAINER_ID=$(docker create php-ndk-arm64)
+          
+          # Debug: Check buildsystem stage for /root/install
+          echo "=== Debugging: Files in /root/install (buildsystem stage) ==="
+          docker build --target buildsystem --build-arg TARGET=aarch64-linux-android --build-arg LIBDIR=arm64-v8a -t php-debug .
+          docker run --rm php-debug ls -la /root/install || echo "No files in /root/install"
+          
+          # Extract from final image
           mkdir -p ./install/jniLibs/arm64-v8a
-          docker cp "$CONTAINER_ID:/app/src/main/jniLibs/arm64-v8a/." ./install/jniLibs/arm64-v8a/
-          docker rm "$CONTAINER_ID"
-          echo "=== Extracted files ==="
-          ls -la ./install/jniLibs/arm64-v8a/
-          if [ -z "$(ls -A ./install/jniLibs/arm64-v8a/)" ]; then
-            echo "❌ ERROR: No .so files found!"
+          docker run --rm php-ndk-arm64 tar cf - /app/src/main/jniLibs/arm64-v8a/ | tar xf - -C ./install/jniLibs/ || {
+            echo "ERROR: Failed to extract /app/src/main/jniLibs/arm64-v8a. Checking if dir exists..."
+            docker run --rm php-ndk-arm64 sh -c 'ls -la /app/src/main/jniLibs/arm64-v8a || echo "Dir not found in image!"'
+            exit 1
+          }
+          
+          echo "=== Contents of ./install ==="
+          ls -laR ./install
+          if [ ! -f "./install/jniLibs/arm64-v8a/php.so" ] || [ ! -f "./install/jniLibs/arm64-v8a/libsqlite3.so" ]; then
+            echo "ERROR: Missing php.so or libsqlite3.so in ./install/jniLibs/arm64-v8a!"
             exit 1
           fi
+          echo "SUCCESS: Found .so files. Sizes:"
+          du -sh ./install/jniLibs/arm64-v8a/*.so
 
-      - name: Upload Artifacts
+      - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: php-android-arm64
           path: ./install/jniLibs/arm64-v8a/
           retention-days: 7
 
-      - name: Create Release ZIP
-        run: |
-          cd ./install/jniLibs/arm64-v8a/
-          zip -r php-android-arm64-${{ github.run_number }}.zip .
-          mv php-android-arm64-${{ github.run_number }}.zip ../../../
-
       - name: Create GitHub Release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ github.run_number }}-arm64
-          name: PHP Android ARM64 v${{ github.run_number }}
+          name: PHP 8.4.2 Android ARM64 Build
           body: |
-            **PHP ${{ github.sha }}** built for **Android ARM64**.
-            
-            - **php.so**: PHP CLI binary
-            - **libsqlite3.so**: SQLite library
-            - Download: `php-android-arm64-${{ github.run_number }}.zip`
-            
-            [View Artifacts](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            PHP 8.4.2 for Android ARM64.
+            - php.so: CLI engine
+            - libsqlite3.so: SQLite support
+            Build #${{ github.run_number }}
           files: |
-            php-android-arm64-${{ github.run_number }}.zip
+            ./install/jniLibs/arm64-v8a/php.so
+            ./install/jniLibs/arm64-v8a/libsqlite3.so
+          draft: false
+          prerelease: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
