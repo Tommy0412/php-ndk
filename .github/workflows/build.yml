@@ -3,17 +3,17 @@ name: Docker Build and Release Asset
 on:
   push:
     branches: 
-      - master  # <-- ADDED: Run when you push changes to the master branch
-      - main    # <-- ADDED: Use 'main' if that is your primary branch
+      - master
+      - main
   create:
     tags:
-      - 'v*.*.*' # Runs on tags like v1.0.0, which creates the final release artifact
+      - 'v*.*.*'
 
 jobs:
   build_and_release:
     runs-on: ubuntu-latest
     permissions:
-      contents: write # Needed for creating a Release and uploading the asset
+      contents: write
     
     steps:
     - name: Checkout repository
@@ -23,32 +23,30 @@ jobs:
       uses: docker/setup-buildx-action@v3
 
     # --- Build the Docker Image ---
-    - name: Build Docker image
+    - name: Build Docker image and load to Docker daemon
       uses: docker/build-push-action@v5
       with:
         context: .
         file: ./Dockerfile
-        # We don't push it, we just build it locally with a tag
         push: false
         tags: php-ndk-image:latest 
+        # CRITICAL FIX: Load the image into the local Docker daemon so 'docker save' can find it.
+        load: true
+        # Optional: Add caching for faster subsequent builds
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
 
     # --- Save the Image as a Tar Archive ---
-    # NOTE: This step only runs successfully when triggered by a TAG creation.
-    # If triggered by a 'push' to master, this step will succeed, but no release will be created.
-    # The 'softprops/action-gh-release' action is smart enough to handle this.
     - name: Save Docker image as tar
       run: |
-        # Use 'docker save' to package the image into a file
+        # This command will now succeed because the image is in the local daemon's inventory.
         docker save php-ndk-image:latest -o php-ndk-image.tar
 
     # --- Upload the Tar Archive to the Release ---
     - name: Upload Release Asset
       id: upload-asset 
-      # This action automatically checks if the trigger was a tag/release creation.
       uses: softprops/action-gh-release@v2
       with:
-        # The tag from the 'create' event is automatically used for the release
         files: php-ndk-image.tar 
-        # Add a placeholder for the release body if the tag doesn't have one
         body: |
           Docker image archive for release ${{ github.ref_name }}.
