@@ -72,18 +72,18 @@ RUN make -j7 sapi/cli/php
 RUN cp /root/build/sapi/cli/php /root/install/php.so
 RUN cp /root/sqlite-amalgamation-${SQLITE3_VERSION}/libsqlite3.so /root/install/libsqlite3.so
 
-# --- FINAL STAGE FIX ---
-# Instead of 'scratch', we use 'alpine:3.21' to give the container basic file system tools.
-# We also copy the files to a simple, predictable location: /artifacts/
+# --- FINAL STAGE FIX (Including Headers) ---
 FROM alpine:3.21
 # Install minimal dependencies needed to run basic shell commands and list files
 RUN apk update && apk add --no-cache bash
 
-# Copy the final artifacts to a clear folder
+# Copy the compiled binaries
 COPY --from=buildsystem /root/install/php.so /artifacts/php.so
 COPY --from=buildsystem /root/install/libsqlite3.so /artifacts/libsqlite3.so
 
+# NEW: Copy PHP Source/Headers required for external linking (Android NDK projects)
+# Note: We use the default PHP version '8.4.2' as the folder name.
+COPY --from=buildsystem /root/php-8.4.2 /artifacts/headers/php
+
 # Expose the artifacts folder
 WORKDIR /artifacts
-
-# Remove the unused ARG/ENV lines related to jniLibs/${LIBDIR}
