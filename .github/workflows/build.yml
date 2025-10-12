@@ -1,11 +1,13 @@
 name: Docker Build and Release Asset
 
 on:
-  # This workflow should only run when you create a new Tag (which creates a Release)
-  # Example: git tag v1.0.0; git push origin v1.0.0
+  push:
+    branches: 
+      - master  # <-- ADDED: Run when you push changes to the master branch
+      - main    # <-- ADDED: Use 'main' if that is your primary branch
   create:
     tags:
-      - 'v*.*.*' # Runs on tags like v1.0.0, v2.1.5, etc.
+      - 'v*.*.*' # Runs on tags like v1.0.0, which creates the final release artifact
 
 jobs:
   build_and_release:
@@ -31,6 +33,9 @@ jobs:
         tags: php-ndk-image:latest 
 
     # --- Save the Image as a Tar Archive ---
+    # NOTE: This step only runs successfully when triggered by a TAG creation.
+    # If triggered by a 'push' to master, this step will succeed, but no release will be created.
+    # The 'softprops/action-gh-release' action is smart enough to handle this.
     - name: Save Docker image as tar
       run: |
         # Use 'docker save' to package the image into a file
@@ -39,6 +44,7 @@ jobs:
     # --- Upload the Tar Archive to the Release ---
     - name: Upload Release Asset
       id: upload-asset 
+      # This action automatically checks if the trigger was a tag/release creation.
       uses: softprops/action-gh-release@v2
       with:
         # The tag from the 'create' event is automatically used for the release
