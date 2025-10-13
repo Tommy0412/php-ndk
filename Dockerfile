@@ -1,7 +1,7 @@
 FROM alpine:3.21 as buildsystem
 
 RUN apk update
-RUN apk add wget unzip gcompat libgcc bash patch make curl autoconf bison re2c
+RUN apk add wget unzip gcompat libgcc bash patch make curl autoconf bison re2c pkgconfig
 
 WORKDIR /opt
 ENV NDK_VERSION android-ndk-r27c-linux
@@ -49,7 +49,7 @@ WORKDIR /root
 RUN mkdir build install
 WORKDIR /root/build
 
-# Configure with embed SAPI and Android-specific flags
+# Configure with embed SAPI but minimal features to avoid dependencies
 RUN ../php-${PHP_VERSION}/configure \
   --host=${TARGET} \
   --enable-embed=shared \
@@ -64,13 +64,13 @@ RUN ../php-${PHP_VERSION}/configure \
   --enable-hash \
   --enable-session \
   --enable-tokenizer \
-  --enable-mbstring \
-  --enable-mbregex \
   --enable-pdo \
   --with-sqlite3 \
   --with-pdo-sqlite \
   --enable-filter \
   --enable-ctype \
+  --disable-mbstring \
+  --disable-mbregex \
   SQLITE_CFLAGS="-I/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
   SQLITE_LIBS="-lsqlite3 -L/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
   CC=$TARGET-clang \
@@ -80,9 +80,8 @@ RUN ../php-${PHP_VERSION}/configure \
   --with-pic \
   ;
 
-# Add debugging to see what's happening during make
-RUN echo "Starting build..." && \
-    make -j$(nproc) V=1 2>&1 | tee build.log && \
+# Build everything
+RUN make -j$(nproc) V=1 2>&1 | tee build.log && \
     if [ ${PIPESTATUS[0]} -ne 0 ]; then \
         echo "Build failed, showing last 50 lines of log:"; \
         tail -50 build.log; \
@@ -92,7 +91,7 @@ RUN echo "Starting build..." && \
 # Check what libraries were built
 RUN echo "=== Checking build results ===" && \
     find /root/build -type f -name "*.so" -exec ls -la {} \; && \
-    find /root/build -type f -name "*.a" -exec ls -la {} \;
+    find /root/build -name "libphp*" -type f
 
 # Copy the embed SAPI library (try multiple possible locations)
 RUN cp /root/build/sapi/embed/.libs/libphp.so /root/install/php.so 2>/dev/null || \
