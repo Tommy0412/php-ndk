@@ -45,7 +45,10 @@ RUN patch -p1 < ../ext-standard-dns.c.patch && \
 WORKDIR /root/build
 
 # --- Configure PHP ---
-RUN ../php-${PHP_VERSION}/configure \
+RUN \
+  SQLITE_CFLAGS="-I/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
+  SQLITE_LIBS="-L/root/sqlite-amalgamation-${SQLITE3_VERSION} -lsqlite3" \
+  ../php-${PHP_VERSION}/configure \
     --host=${TARGET} \
     --prefix=/root/php-android-output \
     --enable-embed=shared \
