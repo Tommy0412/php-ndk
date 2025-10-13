@@ -1,120 +1,97 @@
-FROM alpine:3.21 as buildsystem
+FROM alpine:3.21 AS buildsystem
 
-RUN apk update
-RUN apk add wget unzip gcompat libgcc bash patch make curl autoconf bison re2c pkgconfig
+# Install dependencies
+RUN apk update && apk add --no-cache wget unzip gcompat libgcc bash patch make curl build-base
 
+# Set up Android NDK
 WORKDIR /opt
-ENV NDK_VERSION android-ndk-r27c-linux
-ENV NDK_ROOT /opt/android-ndk-r27c
+ENV NDK_VERSION=android-ndk-r27c-linux
+ENV NDK_ROOT=/opt/android-ndk-r27c
 RUN wget https://dl.google.com/android/repository/${NDK_VERSION}.zip && \
     unzip ${NDK_VERSION}.zip && \
     rm ${NDK_VERSION}.zip
 
-# CRITICAL FIX: Ensure the NDK toolchain is in the PATH
 ENV PATH="${PATH}:${NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64/bin"
 
+# Prepare build environment
 WORKDIR /root
-
-##########
-# CONFIG #
-##########
 ARG TARGET=aarch64-linux-android32
 ARG PHP_VERSION=8.4.2
+ENV SQLITE3_VERSION=3470200
 
-ENV SQLITE3_VERSION 3470200
-RUN wget https://www.sqlite.org/2024/sqlite-amalgamation-${SQLITE3_VERSION}.zip
-RUN unzip sqlite-amalgamation-${SQLITE3_VERSION}.zip
-
+# Download and build SQLite
+RUN wget https://www.sqlite.org/2024/sqlite-amalgamation-${SQLITE3_VERSION}.zip && \
+    unzip sqlite-amalgamation-${SQLITE3_VERSION}.zip
 WORKDIR /root/sqlite-amalgamation-${SQLITE3_VERSION}
 RUN ${TARGET}-clang -o libsqlite3.so -shared -fPIC sqlite3.c
 
+# Download PHP source
 WORKDIR /root
-RUN wget https://www.php.net/distributions/php-${PHP_VERSION}.tar.gz
-RUN tar -xvf php-${PHP_VERSION}.tar.gz
+RUN wget https://www.php.net/distributions/php-${PHP_VERSION}.tar.gz && \
+    tar -xvf php-${PHP_VERSION}.tar.gz
 
+# Apply patches
 COPY *.patch /root/
 WORKDIR /root/php-${PHP_VERSION}
-RUN \
-patch -p1 < ../ext-standard-dns.c.patch && \
-patch -p1 < ../resolv.patch && \
-patch -p1 < ../ext-standard-php_fopen_wrapper.c.patch && \
-patch -p1 < ../main-streams-cast.c.patch && \
-patch -p1 < ../fork.patch \
-;
+RUN patch -p1 < ../ext-standard-dns.c.patch && \
+    patch -p1 < ../resolv.patch && \
+    patch -p1 < ../ext-standard-php_fopen_wrapper.c.patch && \
+    patch -p1 < ../main-streams-cast.c.patch && \
+    patch -p1 < ../fork.patch
 
-# Regenerate configure script (sometimes needed for Android builds)
-RUN autoconf
-
+# Prepare build directories
 WORKDIR /root
 RUN mkdir build install
 WORKDIR /root/build
 
-# Configure with embed SAPI and Android-specific fixes
+# Configure PHP for embed
 RUN ../php-${PHP_VERSION}/configure \
   --host=${TARGET} \
+  --prefix=/root/php-android-output \
   --enable-embed=shared \
-  --disable-cli \
+  --enable-cli \
   --disable-cgi \
   --disable-fpm \
-  --disable-phpdbg \
-  --without-pear \
   --disable-dom \
   --disable-simplexml \
   --disable-xml \
   --disable-xmlreader \
   --disable-xmlwriter \
+  --without-pear \
   --without-libxml \
-  --disable-all \
-  --enable-json \
-  --enable-hash \
-  --enable-session \
-  --enable-tokenizer \
-  --enable-pdo \
+  --disable-phar \
+  --disable-phpdbg \
   --with-sqlite3 \
   --with-pdo-sqlite \
-  --enable-filter \
-  --enable-ctype \
-  --disable-loadavg \
+  CC=${TARGET}-clang \
   SQLITE_CFLAGS="-I/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
-  SQLITE_LIBS="-lsqlite3 -L/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
-  CC=$TARGET-clang \
-  CFLAGS="-DANDROID -fPIC -D__ANDROID_API__=24 -DHAVE_GETLOADAVG=0" \
-  LDFLAGS="-landroid -llog -lz" \
-  --enable-shared \
-  --with-pic \
-  ;
+  SQLITE_LIBS="-lsqlite3 -L/root/sqlite-amalgamation-${SQLITE3_VERSION}"
 
-# Build everything - simplified shell command
-RUN make -j$(nproc) V=1
+# Download missing Android DNS headers
+RUN for hdr in resolv_params.h resolv_private.h resolv_static.h resolv_stats.h; do \
+      curl https://android.googlesource.com/platform/bionic/+/refs/heads/android12--mainline-release/libc/dns/include/$hdr?format=TEXT | base64 -d > $hdr; \
+    done
 
-# Check what libraries were built
-RUN echo "=== Checking build results ===" && \
-    find /root/build -type f -name "*.so" -exec ls -la {} \; && \
-    find /root/build -name "libphp*" -type f
+# Build PHP embed library
+RUN make -j$(nproc)
+RUN make install
 
-# Copy the embed SAPI library (try multiple possible locations)
-RUN cp /root/build/sapi/embed/.libs/libphp.so /root/install/php.so 2>/dev/null || \
-    cp /root/build/sapi/embed/libphp.so /root/install/php.so 2>/dev/null || \
-    cp /root/build/libs/libphp.so /root/install/php.so 2>/dev/null || \
-    cp /root/build/libphp.so /root/install/php.so 2>/dev/null || \
-    echo "ERROR: Could not find any embed library!" && \
-    find /root/build -name "libphp*" -type f
-
+# Copy the embed library and SQLite
+RUN cp sapi/embed/.libs/libphp.so /root/install/php.so || \
+    cp sapi/embed/libphp.so /root/install/php.so || \
+    echo "ERROR: Could not find embed library!"
 RUN cp /root/sqlite-amalgamation-${SQLITE3_VERSION}/libsqlite3.so /root/install/libsqlite3.so
 
 # --- FINAL STAGE ---
 FROM alpine:3.21
+
+# Minimal runtime dependencies
 RUN apk update && apk add --no-cache bash
 
-# Copy the compiled binaries
+# Copy artifacts from build stage
 COPY --from=buildsystem /root/install/php.so /artifacts/php.so
 COPY --from=buildsystem /root/install/libsqlite3.so /artifacts/libsqlite3.so
-
-# Copy PHP Source/Headers required for external linking (Android NDK projects)
-COPY --from=buildsystem /root/php-8.4.2 /artifacts/headers/php
-
-# Copy PHP Build/Headers (generated config headers)
+COPY --from=buildsystem /root/php-${PHP_VERSION} /artifacts/headers/php
 COPY --from=buildsystem /root/build/ /artifacts/headers/php/build/
 
-# Expose the artifacts folder
 WORKDIR /artifacts
