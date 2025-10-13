@@ -51,7 +51,7 @@ RUN for p in /root/patches/*.patch; do \
       fi; \
     done
 
-# --- Remove problem files before configure ---
+# --- Remove problem files before buildconf ---
 RUN rm -f ext/standard/dns.c \
        ext/standard/gettext.c \
        ext/standard/iconv.c
@@ -67,6 +67,9 @@ RUN ./buildconf --force || true && \
       --enable-cli \
       --enable-embed=shared \
       --with-sqlite3 \
+      --without-dns \
+      --without-gettext \
+      --without-iconv \
       --prefix=/root/build/install && \
     make -j$(nproc) && \
     make install
