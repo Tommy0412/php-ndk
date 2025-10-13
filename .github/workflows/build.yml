@@ -13,7 +13,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Build PHP and SQLite in Docker
+      - name: Build PHP and SQLite Docker image
         run: |
           docker build \
             --build-arg TARGET=aarch64-linux-android \
