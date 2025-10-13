@@ -74,7 +74,8 @@ RUN ./buildconf --force || true && \
       --without-pear \
       --disable-phpdbg \
       --prefix=/root/build/install && \
-    make -j$(nproc) || (echo "Build failed. Showing last 100 lines of log:" && tail -n 100 config.log && exit 1) && \
+    echo "=== CONFIGURE FINISHED, STARTING MAKE ===" && \
+    make -j$(nproc) V=1 || (echo "=== MAKE FAILED. SHOWING LOG SNIPPET ===" && tail -n 50 config.log && exit 1) && \
     make install
 
 # --- Final artifacts ---
