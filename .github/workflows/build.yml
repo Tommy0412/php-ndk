@@ -1,4 +1,3 @@
-
 name: Build and Release NDK Artifacts
 
 on:
@@ -8,21 +7,18 @@ on:
 
 jobs:
   build_and_package:
-    # Use a matrix to build for multiple architectures
+    runs-on: ubuntu-latest
     strategy:
       matrix:
-        # Define the Android ABI (as expected by jniLibs) and the NDK target triplet
         architecture:
           - abi: "arm64-v8a"
-            target: "aarch64-linux-android" 
-    
-    runs-on: ubuntu-latest
-    
+            target: "aarch64-linux-android"
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # --- Build Stage: Compiling for Specific Architecture ---
+      # --- Build Stage: Compiling for arm64 ---
       - name: Build PHP/SQLite for ${{ matrix.architecture.abi }}
         id: build-docker-target
         run: |
@@ -31,49 +27,30 @@ jobs:
             --tag php-ndk-builder:${{ matrix.architecture.abi }} \
             --build-arg NDK_TARGET="${{ matrix.architecture.target }}" \
             .
-        # Note: The NDK_TARGET argument must be present in your Dockerfile!
 
-      # --- Package Stage: Extracting and Zipping ---
-      # This step aggregates all compiled files into a single zip structure
+      # --- Package Stage: Extracting Binaries and Headers ---
       - name: Create Artifact Directory
         id: create-dir
-        # Create a directory structure that matches the jniLibs layout
         run: |
           mkdir -p release-package/binaries/${{ matrix.architecture.abi }}
-          # Create headers directory if it's the first run (since headers are architecture-agnostic)
-          if [ "${{ matrix.architecture.abi }}" == "armeabi-v7a" ]; then
-             mkdir -p release-package/includes/php
-          fi
-          
+          mkdir -p release-package/includes/php
+
       - name: Extract Compiled Binaries and Headers
         id: extract
         run: |
-          # a. Create a temporary container from the builder image
           CONTAINER_ID=$(docker create php-ndk-builder:${{ matrix.architecture.abi }})
-          
-          # b. Copy the compiled binaries (.so files) to the specific ABI folder
-          # We extract /root/install content to release-package/binaries/<ABI>/
           docker cp $CONTAINER_ID:/root/install/. ./release-package/binaries/${{ matrix.architecture.abi }}
-          
-          # c. Copy the required headers (PHP source) only on the first run (e.g., armeabi-v7a)
-          if [ "${{ matrix.architecture.abi }}" == "armeabi-v7a" ]; then
-             docker cp $CONTAINER_ID:/root/php-8.4.2/. ./release-package/includes/php
-             # The headers are now correctly available in release-package/includes/php
-          fi
-          
-          # d. Remove the temporary container
+          docker cp $CONTAINER_ID:/root/php-8.4.2/. ./release-package/includes/php
           docker rm $CONTAINER_ID
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          # Upload the binaries for this specific ABI
           name: php-ndk-artifacts-${{ matrix.architecture.abi }}
           path: release-package/binaries/${{ matrix.architecture.abi }}
           if-no-files-found: ignore
 
-
-  # --- Final Release Stage: Aggregating all ABI artifacts and creating the ZIP ---
+  # --- Final Release Stage ---
   release:
     needs: build_and_package
     runs-on: ubuntu-latest
@@ -82,22 +59,18 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
-      
-      # Download binaries for both arm64-v8a and armeabi-v7a
-      - name: Download all ABI artifacts
+
+      - name: Download ABI artifact
         uses: actions/download-artifact@v4
         with:
           path: ./release-package/binaries
 
       - name: Prepare Final Directory Structure and Copy Headers
         run: |
-          # 1. Create the final clean structure
           mkdir -p ./php-ndk-artifacts/lib/arm64-v8a
-          mkdir -p ./php-ndk-artifacts/lib/armeabi-v7a
           mkdir -p ./php-ndk-artifacts/include
 
-          # 2. Re-extract the headers one final time directly from the builder image for consistency
-          # (Targeting 64-bit for the build, as headers are identical regardless of target)
+          # Extract headers one final time from builder image
           docker build --target buildsystem --tag header-extractor --build-arg NDK_TARGET="aarch64-linux-android" .
           CONTAINER_ID=$(docker create header-extractor)
           docker cp $CONTAINER_ID:/root/php-8.4.2/. ./php-ndk-artifacts/include/php
@@ -105,19 +78,13 @@ jobs:
 
       - name: Move Binaries and Rename php.so
         run: |
-          # Move files downloaded by actions/download-artifact into the final zip structure
           mv ./release-package/binaries/php-ndk-artifacts-arm64-v8a/* ./php-ndk-artifacts/lib/arm64-v8a/
-          mv ./release-package/binaries/php-ndk-artifacts-armeabi-v7a/* ./php-ndk-artifacts/lib/armeabi-v7a/
-          
-          # Rename ONLY php.so to libphp_sapi.so
-          # The redundant 'mv libsqlite3.so to libsqlite3.so' commands have been removed.
           mv ./php-ndk-artifacts/lib/arm64-v8a/php.so ./php-ndk-artifacts/lib/arm64-v8a/libphp_sapi.so
-          mv ./php-ndk-artifacts/lib/armeabi-v7a/php.so ./php-ndk-artifacts/lib/armeabi-v7a/libphp_sapi.so
 
       - name: Create ZIP Release Asset
         run: |
           zip -r php-ndk-artifacts.zip php-ndk-artifacts
-      
+
       - name: Upload Release Asset
         uses: softprops/action-gh-release@v2
         with:
