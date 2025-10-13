@@ -48,6 +48,7 @@ WORKDIR /root/build
 
 RUN ../php-${PHP_VERSION}/configure \
   --host=${TARGET} \
+  --enable-embed=shared \
   --disable-dom \
   --disable-simplexml \
   --disable-xml \
