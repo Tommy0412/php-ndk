@@ -82,9 +82,12 @@ RUN apk update && apk add --no-cache bash
 COPY --from=buildsystem /root/install/php.so /artifacts/php.so
 COPY --from=buildsystem /root/install/libsqlite3.so /artifacts/libsqlite3.so
 
-# NEW: Copy PHP Source/Headers required for external linking (Android NDK projects)
+# Copy PHP Source/Headers required for external linking (Android NDK projects)
 # Note: We use the default PHP version '8.4.2' as the folder name.
 COPY --from=buildsystem /root/php-8.4.2 /artifacts/headers/php
+
+# Copy PHP Build/Headers (you will need them trust me)
+COPY --from=buildsystem /root/build/ /artifacts/headers/php/build/
 
 # Expose the artifacts folder
 WORKDIR /artifacts
