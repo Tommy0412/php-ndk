@@ -49,7 +49,7 @@ WORKDIR /root
 RUN mkdir build install
 WORKDIR /root/build
 
-# Configure with embed SAPI but minimal features to avoid dependencies
+# Configure with embed SAPI and explicitly disable problematic extensions
 RUN ../php-${PHP_VERSION}/configure \
   --host=${TARGET} \
   --enable-embed=shared \
@@ -58,14 +58,29 @@ RUN ../php-${PHP_VERSION}/configure \
   --disable-fpm \
   --disable-phpdbg \
   --without-pear \
+  --disable-dom \
+  --disable-simplexml \
+  --disable-xml \
+  --disable-xmlreader \
+  --disable-xmlwriter \
   --without-libxml \
+  --disable-all \
+  --enable-json \
+  --enable-hash \
+  --enable-session \
+  --enable-tokenizer \
+  --enable-pdo \
   --with-sqlite3 \
   --with-pdo-sqlite \
+  --enable-filter \
+  --enable-ctype \
   SQLITE_CFLAGS="-I/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
   SQLITE_LIBS="-lsqlite3 -L/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
   CC=$TARGET-clang \
   CFLAGS="-DANDROID -fPIC -D__ANDROID_API__=24" \
   LDFLAGS="-landroid -llog -lz" \
+  --enable-shared \
+  --with-pic \
   ;
 
 # Build everything
