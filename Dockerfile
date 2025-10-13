@@ -84,7 +84,14 @@ COPY --from=buildsystem /root/install/libsqlite3.so /artifacts/libsqlite3.so
 
 # NEW: Copy PHP Source/Headers required for external linking (Android NDK projects)
 # Note: We use the default PHP version '8.4.2' as the folder name.
+# --- Copy PHP Source + Generated Build Headers ---
+# Copy base PHP source headers
 COPY --from=buildsystem /root/php-8.4.2 /artifacts/headers/php
+
+# Now copy generated configuration headers from the build directory
+COPY --from=buildsystem /root/build/main/php_config.h /artifacts/headers/php/main/php_config.h
+COPY --from=buildsystem /root/build/Zend/zend_config.h /artifacts/headers/php/Zend/zend_config.h
+COPY --from=buildsystem /root/build/main/build-defs.h /artifacts/headers/php/main/build-defs.h
 
 # Expose the artifacts folder
 WORKDIR /artifacts
