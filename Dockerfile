@@ -59,25 +59,13 @@ RUN ../php-${PHP_VERSION}/configure \
   --disable-phpdbg \
   --without-pear \
   --without-libxml \
-  --disable-all \
-  --enable-json \
-  --enable-hash \
-  --enable-session \
-  --enable-tokenizer \
-  --enable-pdo \
   --with-sqlite3 \
   --with-pdo-sqlite \
-  --enable-filter \
-  --enable-ctype \
-  --disable-mbstring \
-  --disable-mbregex \
   SQLITE_CFLAGS="-I/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
   SQLITE_LIBS="-lsqlite3 -L/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
   CC=$TARGET-clang \
   CFLAGS="-DANDROID -fPIC -D__ANDROID_API__=24" \
   LDFLAGS="-landroid -llog -lz" \
-  --enable-shared \
-  --with-pic \
   ;
 
 # Build everything
