@@ -1,8 +1,8 @@
-# Stage 1: Build PHP and SQLite for Android ABI
-FROM alpine:3.21 as buildsystem
+# --- Stage 1: Build PHP and SQLite for Android ABIs ---
+FROM alpine:3.21 AS buildsystem
 
 # Install required packages
-RUN apk update && apk add wget unzip gcompat libgcc bash patch make curl build-base
+RUN apk update && apk add --no-cache wget unzip gcompat libgcc bash patch make curl build-base coreutils
 
 WORKDIR /opt
 
@@ -13,6 +13,7 @@ RUN wget https://dl.google.com/android/repository/${NDK_VERSION}.zip && \
     unzip ${NDK_VERSION}.zip && \
     rm ${NDK_VERSION}.zip
 
+# Add NDK toolchains to PATH
 ENV PATH="${PATH}:${NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64/bin"
 
 WORKDIR /root
@@ -21,19 +22,30 @@ WORKDIR /root
 ARG PHP_VERSION=8.4.2
 ENV SQLITE3_VERSION=3470200
 
-# Download and build SQLite
+# Download and prepare SQLite
 RUN wget https://www.sqlite.org/2024/sqlite-amalgamation-${SQLITE3_VERSION}.zip && \
     unzip sqlite-amalgamation-${SQLITE3_VERSION}.zip
 
-WORKDIR /root/sqlite-amalgamation-${SQLITE3_VERSION}
-RUN ${TARGET}-clang -o libsqlite3.so -shared -fPIC sqlite3.c
-
 # Download PHP source
-WORKDIR /root
 RUN wget https://www.php.net/distributions/php-${PHP_VERSION}.tar.gz && \
     tar -xvf php-${PHP_VERSION}.tar.gz
 
+# Copy any required patches
 COPY *.patch /root/
+
+# --- Function to build for a specific ABI ---
+ARG TARGET
+ARG API_LEVEL=32
+
+WORKDIR /root/build
+
+# Build SQLite first
+WORKDIR /root/sqlite-amalgamation-${SQLITE3_VERSION}
+RUN ${TARGET}-clang -o libsqlite3.so -shared -fPIC sqlite3.c
+
+# Build PHP
+WORKDIR /root/build
+RUN mkdir -p install
 
 WORKDIR /root/php-${PHP_VERSION}
 RUN patch -p1 < ../ext-standard-dns.c.patch && \
@@ -42,12 +54,7 @@ RUN patch -p1 < ../ext-standard-dns.c.patch && \
     patch -p1 < ../main-streams-cast.c.patch && \
     patch -p1 < ../fork.patch
 
-# Prepare build directory
 WORKDIR /root/build
-RUN mkdir -p install
-
-# --- Function: build PHP for a specific ABI ---
-ARG TARGET
 RUN ../php-${PHP_VERSION}/configure \
       --host=${TARGET} \
       --enable-embed=shared \
@@ -60,28 +67,27 @@ RUN ../php-${PHP_VERSION}/configure \
       --without-libxml \
       SQLITE_CFLAGS="-I/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
       SQLITE_LIBS="-lsqlite3 -L/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
-      CC=$TARGET-clang \
+      CC=${TARGET}-clang \
       --disable-phar \
       --disable-phpdbg \
       --with-sqlite3 \
       --with-pdo-sqlite
 
 RUN make -j$(nproc) sapi/cli/php
-RUN cp /root/build/sapi/cli/php /root/build/install/php.so
-RUN cp /root/sqlite-amalgamation-${SQLITE3_VERSION}/libsqlite3.so /root/build/install/libsqlite3.so
 
-# Copy headers (for Android NDK projects)
-RUN cp -r /root/php-${PHP_VERSION} /root/build/install/php-headers
+# Copy outputs
+RUN cp sapi/cli/php install/php.so
+RUN cp /root/sqlite-amalgamation-${SQLITE3_VERSION}/libsqlite3.so install/libsqlite3.so
+RUN cp -r /root/php-${PHP_VERSION} install/php-headers
 
-# Stage 2: Final artifacts
+# --- Stage 2: Final artifacts ---
 FROM alpine:3.21
 
-RUN apk update && apk add --no-cache bash
+RUN apk update && apk add --no-cache bash coreutils
 
 WORKDIR /artifacts
 
-# Copy the binaries and headers
+# Copy binaries and headers
 COPY --from=buildsystem /root/build/install/php.so ./php.so
 COPY --from=buildsystem /root/build/install/libsqlite3.so ./libsqlite3.so
 COPY --from=buildsystem /root/build/install/php-headers ./headers/php
-
