@@ -62,8 +62,8 @@ RUN ./buildconf --force || true && \
       --enable-cli \
       --enable-embed=shared \
       --with-sqlite3 \
-      --without-dns \
       --prefix=/root/build/install && \
+    rm -f ext/standard/dns.c && \
     make -j$(nproc) && \
     make install
 
