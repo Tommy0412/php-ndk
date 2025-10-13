@@ -1,41 +1,36 @@
-# --- Config ---
-PHP_VERSION=8.4.2
-PATCHLEVEL=1
-API_LEVEL=32
-IMAGE_NAME=php-ndk
-DESTDIR=release-package
-LIBDIR_PATH=app/src/main/jniLibs
-
-EABI_PLATFORMS=armv7a aarch64
-NOABI_PLATFORMS=i686 x86_64 riscv64
+# Usage: make DESTDIR=/binary/installation/path
+DESTDIR=.
+EABI_PLATFORMS=armv7a
+NOABI_PLATFORMS=aarch64 i686 riscv64 x86_64
 PLATFORMS=$(EABI_PLATFORMS) $(NOABI_PLATFORMS)
 INSTALL_PLATFORMS=$(foreach platform,$(PLATFORMS),install-$(platform))
-
+LIBDIR_PATH=app/src/main/jniLibs/
 armv7a_LIBDIR=armeabi-v7a
 aarch64_LIBDIR=arm64-v8a
 i686_LIBDIR=x86
 x86_64_LIBDIR=x86_64
 riscv64_LIBDIR=riscv64
+LIBDIRS=armv7a_LIBDIR aarch64_LIBDIR
+ENABLED_PLATFORMS=armv7a aarch64
+ENABLES_INSTALLS=$(foreach platform,$(ENABLED_PLATFORMS),install-$(platform))
 
-# --- Targets ---
-all: $(EABI_PLATFORMS) install
+PHP_VERSION=8.4.2
+PATCHLEVEL=1
+API_LEVEL=32
+IMAGE_NAME=php-ndk
+
+all: $(ENABLED_PLATFORMS)
+install: $(ENABLES_INSTALLS)
 
 $(EABI_PLATFORMS):
-	docker build \
-		--build-arg TARGET=$@-linux-androideabi$(API_LEVEL) \
-		--build-arg LIBDIR=$($@_LIBDIR) \
-		--tag $(IMAGE_NAME):$(PHP_VERSION)-$@-api$(API_LEVEL)-$(PATCHLEVEL) \
-		.
+	docker build --build-arg=TARGET=$@-linux-androideabi$(API_LEVEL) --build-arg=LIBDIR=$($@_LIBDIR) -t $(IMAGE_NAME):$(PHP_VERSION)-$@-api$(API_LEVEL)-$(PATCHLEVEL) .
+
+$(NOABI_PLATFORMS):
+	docker build --build-arg=TARGET=$@-linux-android$(API_LEVEL) --build-arg=LIBDIR=$($@_LIBDIR) -t $(IMAGE_NAME):$(PHP_VERSION)-$@-api$(API_LEVEL)-$(PATCHLEVEL) .
 
 $(INSTALL_PLATFORMS):
-	$(eval PLATFORM=$(subst install-,,$@))
-	$(eval CONTAINER=$(shell docker create $(IMAGE_NAME):$(PHP_VERSION)-$(PLATFORM)-api$(API_LEVEL)-$(PATCHLEVEL) /dummy))
-	# Copy binaries into ABI-specific folder
-	docker cp $(CONTAINER):/root/install/. $(DESTDIR)/binaries/$($(_LIBDIR))
-	# Copy headers only once (armeabi-v7a)
-	if [ "$(PLATFORM)" = "armv7a" ]; then \
-		docker cp $(CONTAINER):/root/php-$(PHP_VERSION)/. $(DESTDIR)/includes/php; \
-	fi
+	$(eval CONTAINER=$(shell docker create $(IMAGE_NAME):$(PHP_VERSION)-$(subst install-,,$@)-api$(API_LEVEL)-$(PATCHLEVEL) /dummy))
+	docker cp $(CONTAINER):/app $(DESTDIR)/
 	docker rm -f $(CONTAINER)
 
-.PHONY: all $(PLATFORMS) install-$(PLATFORMS)
+.PHONY: $(PLATFORMS) install-$(PLATFORMS)
