@@ -49,6 +49,9 @@ WORKDIR /root/build
 RUN ../php-${PHP_VERSION}/configure \
   --host=${TARGET} \
   --enable-embed=shared \
+  --enable-cli \
+  --disable-cgi \
+  --disable-fpm \
   --disable-dom \
   --disable-simplexml \
   --disable-xml \
@@ -69,8 +72,11 @@ RUN \
   for hdr in resolv_params.h resolv_private.h resolv_static.h resolv_stats.h; do \
     curl https://android.googlesource.com/platform/bionic/+/refs/heads/android12--mainline-release/libc/dns/include/$hdr?format=TEXT | base64 -d > $hdr; \
   done
-RUN make -j7 sapi/cli/php
-RUN cp /root/build/sapi/cli/php /root/install/php.so
+RUN make -j7
+# To this (copy the embed SAPI library):
+RUN cp /root/build/sapi/embed/.libs/libphp.so /root/install/php.so || \
+    cp /root/build/sapi/embed/libphp.so /root/install/php.so || \
+    echo "ERROR: Could not find embed library!"
 RUN cp /root/sqlite-amalgamation-${SQLITE3_VERSION}/libsqlite3.so /root/install/libsqlite3.so
 
 # --- FINAL STAGE FIX (Including Headers) ---
