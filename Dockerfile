@@ -1,5 +1,5 @@
-# Stage 1: Build PHP and SQLite for arm64-v8a
-FROM alpine:3.21 AS buildsystem
+# Stage 1: Build PHP and SQLite for Android ABI
+FROM alpine:3.21 as buildsystem
 
 # Install required packages
 RUN apk update && apk add --no-cache \
@@ -22,16 +22,20 @@ WORKDIR /root
 # PHP & SQLite versions
 ARG PHP_VERSION=8.4.2
 ENV SQLITE3_VERSION=3470200
-ARG API_LEVEL=32
-ARG TARGET=aarch64-linux-android
 
-# Download and unzip SQLite
+# Download and build SQLite
 RUN wget https://www.sqlite.org/2024/sqlite-amalgamation-${SQLITE3_VERSION}.zip && \
     unzip sqlite-amalgamation-${SQLITE3_VERSION}.zip
 
 WORKDIR /root/sqlite-amalgamation-${SQLITE3_VERSION}
-# Build SQLite shared library for arm64-v8a
-RUN ${NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64/bin/${TARGET}${API_LEVEL}-clang -o libsqlite3.so -shared -fPIC sqlite3.c
+
+# TARGET and API_LEVEL for arm64-v8a
+ARG TARGET=aarch64-linux-android
+ARG API_LEVEL=32
+
+# Build libsqlite3.so
+RUN ${NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64/bin/${TARGET}${API_LEVEL}-clang \
+    -o libsqlite3.so -shared -fPIC sqlite3.c
 
 # Download PHP source
 WORKDIR /root
@@ -41,15 +45,16 @@ RUN wget https://www.php.net/distributions/php-${PHP_VERSION}.tar.gz && \
 # Copy patch files if they exist
 RUN sh -c 'if compgen -G "*.patch" > /dev/null; then cp *.patch /root/; fi'
 
-# Apply patches
 WORKDIR /root/php-${PHP_VERSION}
-RUN sh -c 'for p in /root/*.patch; do patch -p1 < "$p"; done || true'
+
+# Apply patches if any
+RUN sh -c 'for p in /root/*.patch; do [ -f "$p" ] && patch -p1 < "$p"; done'
 
 # Prepare build directory
 WORKDIR /root/build
 RUN mkdir -p install
 
-# Configure PHP for embedding
+# Configure PHP for arm64-v8a
 RUN ../php-${PHP_VERSION}/configure \
     --host=${TARGET} \
     --enable-embed=shared \
@@ -70,6 +75,8 @@ RUN ../php-${PHP_VERSION}/configure \
 
 # Build PHP CLI
 RUN make -j$(nproc) sapi/cli/php
+
+# Copy PHP binary and SQLite library
 RUN cp sapi/cli/php install/php.so
 RUN cp /root/sqlite-amalgamation-${SQLITE3_VERSION}/libsqlite3.so install/libsqlite3.so
 
@@ -81,6 +88,7 @@ FROM alpine:3.21
 RUN apk update && apk add --no-cache bash
 
 WORKDIR /artifacts
+
 COPY --from=buildsystem /root/build/install/php.so ./php.so
 COPY --from=buildsystem /root/build/install/libsqlite3.so ./libsqlite3.so
 COPY --from=buildsystem /root/build/install/php-headers ./headers/php
