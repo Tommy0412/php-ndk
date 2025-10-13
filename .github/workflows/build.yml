@@ -41,6 +41,8 @@ jobs:
           CONTAINER_ID=$(docker create php-ndk-builder:${{ matrix.architecture.abi }})
           docker cp $CONTAINER_ID:/root/install/. ./release-package/binaries/${{ matrix.architecture.abi }}
           docker cp $CONTAINER_ID:/root/php-8.4.2/. ./release-package/includes/php
+          # Copy the generated build headers (including zend_config.h)
+          docker cp $CONTAINER_ID:/root/build/. ./release-package/includes/php/build/
           docker rm $CONTAINER_ID
 
       - name: Upload Artifacts
@@ -71,9 +73,11 @@ jobs:
           mkdir -p ./php-ndk-artifacts/include
 
           # Extract headers one final time from builder image
-          docker build --target buildsystem --tag header-extractor --build-arg NDK_TARGET="aarch64-linux-android" .
+          docker build --target buildsystem --tag header-extractor --build-arg NDK_TARGET="aarch64-linux-android32" .
           CONTAINER_ID=$(docker create header-extractor)
           docker cp $CONTAINER_ID:/root/php-8.4.2/. ./php-ndk-artifacts/include/php
+          # Copy the generated build headers (including zend_config.h)
+          docker cp $CONTAINER_ID:/root/build/. ./php-ndk-artifacts/include/php/build/
           docker rm $CONTAINER_ID
 
       - name: Move Binaries and Rename php.so
