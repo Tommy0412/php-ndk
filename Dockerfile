@@ -1,91 +1,97 @@
-FROM alpine:3.21 as buildsystem
+# ==========================================
+# Stage 1: Build PHP for Android
+# ==========================================
+FROM alpine:3.21 AS buildsystem
 
-RUN apk update
-RUN apk add wget unzip gcompat libgcc bash patch make curl
+# --- Base packages ---
+RUN apk update && apk add wget unzip gcompat libgcc bash patch make curl autoconf build-base
 
 WORKDIR /opt
+
+# --- Setup Android NDK ---
 ENV NDK_VERSION android-ndk-r27c-linux
 ENV NDK_ROOT /opt/android-ndk-r27c
-RUN wget https://dl.google.com/android/repository/${NDK_VERSION}.zip && \
-    unzip ${NDK_VERSION}.zip && \
-    rm ${NDK_VERSION}.zip
+RUN wget https://dl.google.com/android/repository/${NDK_VERSION}.zip \
+    && unzip ${NDK_VERSION}.zip \
+    && rm ${NDK_VERSION}.zip
 
-# CRITICAL FIX: Ensure the NDK toolchain is in the PATH
+# Add NDK toolchain to PATH
 ENV PATH="${PATH}:${NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64/bin"
 
+# ==========================================
+# Stage 2: Download and build dependencies
+# ==========================================
 WORKDIR /root
-
-##########
-# CONFIG #
-##########
-ARG TARGET=aarch64-linux-android
 ARG TARGET=aarch64-linux-android32
 ARG PHP_VERSION=8.4.2
-
 ENV SQLITE3_VERSION 3470200
-RUN wget https://www.sqlite.org/2024/sqlite-amalgamation-${SQLITE3_VERSION}.zip
-RUN unzip sqlite-amalgamation-${SQLITE3_VERSION}.zip
 
+# --- Build SQLite3 shared library ---
+RUN wget https://www.sqlite.org/2024/sqlite-amalgamation-${SQLITE3_VERSION}.zip \
+    && unzip sqlite-amalgamation-${SQLITE3_VERSION}.zip
 WORKDIR /root/sqlite-amalgamation-${SQLITE3_VERSION}
 RUN ${TARGET}-clang -o libsqlite3.so -shared -fPIC sqlite3.c
 
+# --- Download and extract PHP source ---
 WORKDIR /root
-RUN wget https://www.php.net/distributions/php-${PHP_VERSION}.tar.gz
-RUN tar -xvf php-${PHP_VERSION}.tar.gz
+RUN wget https://www.php.net/distributions/php-${PHP_VERSION}.tar.gz \
+    && tar -xvf php-${PHP_VERSION}.tar.gz
 
-COPY *.patch /root/
+# --- Apply patches if any (optional) ---
+COPY *.patch /root/ || true
 WORKDIR /root/php-${PHP_VERSION}
-RUN \
-patch -p1 < ../ext-standard-dns.c.patch && \
-patch -p1 < ../resolv.patch && \
-patch -p1 < ../ext-standard-php_fopen_wrapper.c.patch && \
-patch -p1 < ../main-streams-cast.c.patch && \
-patch -p1 < ../fork.patch \
-;
+RUN for f in /root/*.patch; do [ -f "$f" ] && patch -p1 < "$f" || true; done
 
-WORKDIR /root
-RUN mkdir build install
+# ==========================================
+# Stage 3: Configure PHP (embedded mode)
+# ==========================================
 WORKDIR /root/build
-
 RUN ../php-${PHP_VERSION}/configure \
-  --host=${TARGET} \
-  --enable-embed=shared \
-  --disable-dom \
-  --disable-simplexml \
-  --disable-xml \
-  --disable-xmlreader \
-  --disable-xmlwriter \
-  --without-pear \
-  --without-libxml \
-  SQLITE_CFLAGS="-I/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
-  SQLITE_LIBS="-lsqlite3 -L/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
-  CC=$TARGET-clang \
-  --disable-phar \
-  --disable-phpdbg \
-  --with-sqlite3 \
-  --with-pdo-sqlite \
-  ;
+    --host=${TARGET} \
+    --prefix=/root/php-android-output \
+    --enable-embed=shared \
+    --disable-cli \
+    --disable-cgi \
+    --disable-fpm \
+    --disable-phpdbg \
+    --without-pear \
+    --disable-dom \
+    --disable-simplexml \
+    --disable-xml \
+    --disable-xmlreader \
+    --disable-xmlwriter \
+    --without-libxml \
+    --disable-phar \
+    --with-sqlite3 \
+    --with-pdo-sqlite \
+    CC=${TARGET}-clang \
+    CFLAGS="-I/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
+    LDFLAGS="-L/root/sqlite-amalgamation-${SQLITE3_VERSION}"
 
-RUN \
-  for hdr in resolv_params.h resolv_private.h resolv_static.h resolv_stats.h; do \
-    curl https://android.googlesource.com/platform/bionic/+/refs/heads/android12--mainline-release/libc/dns/include/$hdr?format=TEXT | base64 -d > $hdr; \
-  done
-RUN make -j7 sapi/cli/php
-RUN cp /root/build/sapi/cli/php /root/install/php.so
-RUN cp /root/sqlite-amalgamation-${SQLITE3_VERSION}/libsqlite3.so /root/install/libsqlite3.so
+# ==========================================
+# Stage 4: Build and install
+# ==========================================
+RUN make -j$(nproc)
+RUN make install
 
-# --- FINAL STAGE FIX (Including Headers) ---
+# ==========================================
+# Stage 5: Collect artifacts
+# ==========================================
 FROM alpine:3.21
-# Install minimal dependencies needed to run basic shell commands and list files
-RUN apk update && apk add --no-cache bash
 
-# Copy the compiled binaries
-COPY --from=buildsystem /root/install/php.so /artifacts/php.so
-COPY --from=buildsystem /root/install/libsqlite3.so /artifacts/libsqlite3.so
+RUN apk add --no-cache bash
 
-# NEW: Copy PHP Source/Headers required for external linking (Android NDK projects)
-# Note: We use the default PHP version '8.4.2' as the folder name.
-COPY --from=buildsystem /root/php-8.4.2 /artifacts/headers/php
+# Copy PHP shared library (libphp.so)
+COPY --from=buildsystem /root/php-android-output/lib/libphp.so /artifacts/php.so
 
-# Expose the artifacts folder
+# Copy SQLite3 shared lib
+COPY --from=buildsystem /root/sqlite-amalgamation-*/libsqlite3.so /artifacts/libsqlite3.so
+
+# Copy all PHP headers (includes Zend, TSRM, main, sapi)
+COPY --from=buildsystem /root/php-android-output/include/php /artifacts/headers/php
+
+# Working directory for exported artifacts
 WORKDIR /artifacts
+
+# Show directory structure when container runs
+CMD ["bash", "-c", "echo 'Artifacts ready:' && find /artifacts -maxdepth 3 -type f"]
