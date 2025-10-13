@@ -51,10 +51,11 @@ RUN for p in /root/patches/*.patch; do \
       fi; \
     done
 
-# --- Remove problem files before buildconf ---
-RUN rm -f ext/standard/dns.c \
-       ext/standard/gettext.c \
-       ext/standard/iconv.c
+# --- Remove problematic source files BEFORE buildconf ---
+RUN rm -f \
+    ext/standard/dns.c \
+    ext/standard/gettext.c \
+    ext/standard/iconv.c || true
 
 # --- Configure and build PHP ---
 RUN ./buildconf --force || true && \
@@ -70,8 +71,10 @@ RUN ./buildconf --force || true && \
       --without-dns \
       --without-gettext \
       --without-iconv \
+      --without-pear \
+      --disable-phpdbg \
       --prefix=/root/build/install && \
-    make -j$(nproc) && \
+    make -j$(nproc) || (echo "Build failed. Showing last 100 lines of log:" && tail -n 100 config.log && exit 1) && \
     make install
 
 # --- Final artifacts ---
