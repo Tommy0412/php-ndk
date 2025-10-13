@@ -1,37 +1,66 @@
-name: Build PHP NDK
+name: Build PHP Android (arm64-v8a)
 
 on:
   push:
-    branches:
-      - main
-  workflow_dispatch:
+    paths:
+      - 'Dockerfile'
+      - '.github/workflows/build.yml'
+      - '*.patch'
 
 jobs:
-  build-arm64-v8a:
-    name: Build PHP arm64-v8a
+  build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Set up QEMU for cross-compilation
+      - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
-        with:
-          platforms: linux/arm64
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build PHP Docker image
+      - name: Build PHP for Android arm64-v8a
         run: |
           docker build \
             --build-arg TARGET=aarch64-linux-android \
             --build-arg API_LEVEL=32 \
             --build-arg PHP_VERSION=8.4.2 \
             --target buildsystem \
-            --tag php-ndk-arm64-v8a \
-            .
-          
-      - name: Verify build
-        run: docker run --rm php-ndk-arm64-v8a php -v
+            -t php-ndk-arm64-v8a .
+
+      - name: Extract build artifacts
+        run: |
+          docker create --name extract php-ndk-arm64-v8a
+          docker cp extract:/root/build/install ./build-output
+          docker rm extract
+          ls -lah build-output
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: php-android-arm64-v8a
+          path: build-output/
+
+  release:
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: php-android-arm64-v8a
+          path: release-files/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ github.run_number }}-php8.4.2-arm64
+          name: "PHP Android arm64-v8a Build #${{ github.run_number }}"
+          files: |
+            release-files/php.so
+            release-files/libsqlite3.so
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
