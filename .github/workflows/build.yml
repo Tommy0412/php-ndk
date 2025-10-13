@@ -83,7 +83,7 @@ jobs:
       - name: Move Binaries and Rename php.so
         run: |
           mv ./release-package/binaries/php-ndk-artifacts-arm64-v8a/* ./php-ndk-artifacts/lib/arm64-v8a/
-          mv ./php-ndk-artifacts/lib/arm64-v8a/php.so ./php-ndk-artifacts/lib/arm64-v8a/libphp_sapi.so
+          mv ./php-ndk-artifacts/lib/arm64-v8a/php.so ./php-ndk-artifacts/lib/arm64-v8a/libphp.so
 
       - name: Create ZIP Release Asset
         run: |
