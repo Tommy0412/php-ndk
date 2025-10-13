@@ -51,31 +51,30 @@ RUN for p in /root/patches/*.patch; do \
       fi; \
     done
 
-# --- Remove problematic source files BEFORE buildconf ---
-RUN rm -f \
-    ext/standard/dns.c \
-    ext/standard/gettext.c \
-    ext/standard/iconv.c || true
+# --- Remove problematic extensions before configure ---
+RUN rm -f ext/standard/dns.c \
+          ext/standard/gettext.c \
+          ext/standard/iconv.c \
+          ext/standard/pear.c \
+          ext/standard/phpdbg.c
 
-# --- Configure and build PHP ---
 RUN ./buildconf --force || true && \
     SQLITE_CFLAGS="-I/root/sqlite-amalgamation-3470200" \
     SQLITE_LIBS="-L/root/sqlite-amalgamation-3470200 -lsqlite3" \
     ./configure \
-      --host=${TARGET} \
-      --target=${TARGET} \
-      --disable-all \
-      --enable-cli \
-      --enable-embed=shared \
-      --with-sqlite3 \
-      --without-dns \
-      --without-gettext \
-      --without-iconv \
-      --without-pear \
-      --disable-phpdbg \
-      --prefix=/root/build/install && \
-    echo "=== CONFIGURE FINISHED, STARTING MAKE ===" && \
-    make -j$(nproc) V=1 || (echo "=== MAKE FAILED. SHOWING LOG SNIPPET ===" && tail -n 50 config.log && exit 1) && \
+        --host=${TARGET} \
+        --target=${TARGET} \
+        --disable-all \
+        --enable-cli \
+        --enable-embed=shared \
+        --with-sqlite3 \
+        --without-dns \
+        --without-gettext \
+        --without-iconv \
+        --without-pear \
+        --disable-phpdbg \
+        --prefix=/root/build/install && \
+    make -j$(nproc) V=1 && \
     make install
 
 # --- Final artifacts ---
