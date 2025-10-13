@@ -51,13 +51,14 @@ RUN for p in /root/patches/*.patch; do \
       fi; \
     done
 
-# Remove extensions that can't be compiled for Android
+# --- Remove problematic standard extensions ---
 RUN rm -f ext/standard/dns.c \
           ext/standard/gettext.c \
           ext/standard/iconv.c \
           ext/standard/pear.c \
           ext/standard/phpdbg.c
 
+# --- Configure and build PHP ---
 RUN ./buildconf --force || true && \
     SQLITE_CFLAGS="-I/root/sqlite-amalgamation-3470200" \
     SQLITE_LIBS="-L/root/sqlite-amalgamation-3470200 -lsqlite3" \
@@ -68,11 +69,6 @@ RUN ./buildconf --force || true && \
         --enable-cli \
         --enable-embed=shared \
         --with-sqlite3 \
-        --without-dns \
-        --without-gettext \
-        --without-iconv \
-        --without-pear \
-        --disable-phpdbg \
         --prefix=/root/build/install && \
     make -j$(nproc) V=1 && \
     make install
