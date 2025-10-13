@@ -49,7 +49,7 @@ WORKDIR /root
 RUN mkdir build install
 WORKDIR /root/build
 
-# Configure with embed SAPI and explicitly disable problematic extensions
+# Configure with embed SAPI and Android-specific fixes
 RUN ../php-${PHP_VERSION}/configure \
   --host=${TARGET} \
   --enable-embed=shared \
@@ -74,22 +74,18 @@ RUN ../php-${PHP_VERSION}/configure \
   --with-pdo-sqlite \
   --enable-filter \
   --enable-ctype \
+  --disable-loadavg \
   SQLITE_CFLAGS="-I/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
   SQLITE_LIBS="-lsqlite3 -L/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
   CC=$TARGET-clang \
-  CFLAGS="-DANDROID -fPIC -D__ANDROID_API__=24" \
+  CFLAGS="-DANDROID -fPIC -D__ANDROID_API__=24 -DHAVE_GETLOADAVG=0" \
   LDFLAGS="-landroid -llog -lz" \
   --enable-shared \
   --with-pic \
   ;
 
-# Build everything
-RUN make -j$(nproc) V=1 2>&1 | tee build.log && \
-    if [ ${PIPESTATUS[0]} -ne 0 ]; then \
-        echo "Build failed, showing last 50 lines of log:"; \
-        tail -50 build.log; \
-        exit 1; \
-    fi
+# Build everything - simplified shell command
+RUN make -j$(nproc) V=1
 
 # Check what libraries were built
 RUN echo "=== Checking build results ===" && \
