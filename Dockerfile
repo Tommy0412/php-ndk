@@ -35,11 +35,12 @@ WORKDIR /root
 RUN wget https://www.php.net/distributions/php-${PHP_VERSION}.tar.gz && \
     tar -xvf php-${PHP_VERSION}.tar.gz
 
-# --- Copy patch files (optional) ---
+# --- Copy patch files only if they exist ---
 RUN mkdir -p /root/patches
-# ensure at least one file exists to avoid Docker COPY bug
-RUN touch /tmp/noop.patch
-COPY *.patch /root/patches/ || true
+# Docker COPY ne podržava wildcard bez fajlova, pa koristimo shell trik
+# Ako nema .patch fajlova, kopira prazan fajl umjesto da pukne
+COPY . /root/context
+RUN sh -c 'find /root/context -maxdepth 1 -type f -name "*.patch" -exec cp {} /root/patches/ \; || true'
 
 # --- Apply patches if exist ---
 WORKDIR /root/php-${PHP_VERSION}
