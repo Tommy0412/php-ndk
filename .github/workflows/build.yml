@@ -13,10 +13,8 @@ jobs:
       matrix:
         # Define the Android ABI (as expected by jniLibs) and the NDK target triplet
         architecture:
-          - abi: "armeabi-v7a"
-            target: "armv7a-linux-androideabi32"
           - abi: "arm64-v8a"
-            target: "aarch64-linux-android" # <-- 64-bit target
+            target: "aarch64-linux-android" 
     
     runs-on: ubuntu-latest
     
