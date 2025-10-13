@@ -51,7 +51,7 @@ RUN for p in /root/patches/*.patch; do \
       fi; \
     done
 
-# --- Remove problematic extensions before configure ---
+# Remove extensions that can't be compiled for Android
 RUN rm -f ext/standard/dns.c \
           ext/standard/gettext.c \
           ext/standard/iconv.c \
