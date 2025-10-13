@@ -1,53 +1,70 @@
-name: Docker Build and Release Asset
+name: Build PHP NDK for arm64-v8a
 
 on:
   push:
-    branches: 
-      - master
-      - main
-  create:
     tags:
       - 'v*.*.*'
 
 jobs:
-  build_and_release:
+  build_and_package:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    
+
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+      - name: Build PHP and SQLite Docker image
+        run: |
+          docker build \
+            --build-arg TARGET=aarch64-linux-android \
+            --build-arg API_LEVEL=32 \
+            --build-arg PHP_VERSION=8.4.2 \
+            --target buildsystem \
+            --tag php-ndk-arm64-v8a \
+            .
 
-    # --- Build the Docker Image ---
-    - name: Build Docker image and load to Docker daemon
-      uses: docker/build-push-action@v5
-      with:
-        context: .
-        file: ./Dockerfile
-        push: false
-        tags: php-ndk-image:latest 
-        load: true
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
+      - name: Extract compiled binaries and headers
+        run: |
+          mkdir -p release-package/lib/arm64-v8a
+          mkdir -p release-package/include/php
 
-    # --- Save the Image as a Tar Archive (CONDITIONAL) ---
-    - name: Save Docker image as tar
-      # CRITICAL FIX: Only run this step if the workflow was triggered by a tag
-      if: startsWith(github.ref, 'refs/tags/')
-      run: |
-        docker save php-ndk-image:latest -o php-ndk-image.tar
+          CONTAINER_ID=$(docker create php-ndk-arm64-v8a)
+          docker cp $CONTAINER_ID:/root/build/install/. ./release-package/lib/arm64-v8a
+          docker cp $CONTAINER_ID:/root/build/install/php-headers/. ./release-package/include/php
+          docker rm $CONTAINER_ID
 
-    # --- Upload the Tar Archive to the Release (CONDITIONAL) ---
-    - name: Upload Release Asset
-      id: upload-asset 
-      # CRITICAL FIX: Only run this step if the workflow was triggered by a tag
-      if: startsWith(github.ref, 'refs/tags/')
-      uses: softprops/action-gh-release@v2
-      with:
-        files: php-ndk-image.tar 
-        body: |
-          Docker image archive for release ${{ github.ref_name }}.
+      - name: Rename PHP binary
+        run: |
+          mv release-package/lib/arm64-v8a/php.so release-package/lib/arm64-v8a/libphp_sapi.so
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: php-ndk-arm64-v8a
+          path: release-package
+          if-no-files-found: ignore
+
+  release:
+    needs: build_and_package
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          path: ./release-package
+
+      - name: Zip final artifacts
+        run: |
+          zip -r php-ndk-artifacts.zip release-package
+
+      - name: Upload release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          files: php-ndk-artifacts.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
