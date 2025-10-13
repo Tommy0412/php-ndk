@@ -37,7 +37,9 @@ RUN wget https://www.php.net/distributions/php-${PHP_VERSION}.tar.gz && \
 
 # --- Copy patch files (optional) ---
 RUN mkdir -p /root/patches
-COPY ./*.patch /root/patches/ 2>/dev/null || true
+# ensure at least one file exists to avoid Docker COPY bug
+RUN touch /tmp/noop.patch
+COPY *.patch /root/patches/ || true
 
 # --- Apply patches if exist ---
 WORKDIR /root/php-${PHP_VERSION}
