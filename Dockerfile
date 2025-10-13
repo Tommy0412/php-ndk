@@ -1,7 +1,7 @@
 FROM alpine:3.21 as buildsystem
 
 RUN apk update
-RUN apk add wget unzip gcompat libgcc bash patch make curl
+RUN apk add wget unzip gcompat libgcc bash patch make curl autoconf bison re2c
 
 WORKDIR /opt
 ENV NDK_VERSION android-ndk-r27c-linux
@@ -42,46 +42,70 @@ patch -p1 < ../main-streams-cast.c.patch && \
 patch -p1 < ../fork.patch \
 ;
 
+# Regenerate configure script (sometimes needed for Android builds)
+RUN autoconf
+
 WORKDIR /root
 RUN mkdir build install
 WORKDIR /root/build
 
+# Configure with embed SAPI and Android-specific flags
 RUN ../php-${PHP_VERSION}/configure \
   --host=${TARGET} \
   --enable-embed=shared \
-  --enable-cli \
+  --disable-cli \
   --disable-cgi \
   --disable-fpm \
-  --disable-dom \
-  --disable-simplexml \
-  --disable-xml \
-  --disable-xmlreader \
-  --disable-xmlwriter \
+  --disable-phpdbg \
   --without-pear \
   --without-libxml \
+  --disable-all \
+  --enable-json \
+  --enable-hash \
+  --enable-session \
+  --enable-tokenizer \
+  --enable-mbstring \
+  --enable-mbregex \
+  --enable-pdo \
+  --with-sqlite3 \
+  --with-pdo-sqlite \
+  --enable-filter \
+  --enable-ctype \
   SQLITE_CFLAGS="-I/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
   SQLITE_LIBS="-lsqlite3 -L/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
   CC=$TARGET-clang \
-  --disable-phar \
-  --disable-phpdbg \
-  --with-sqlite3 \
-  --with-pdo-sqlite \
+  CFLAGS="-DANDROID -fPIC -D__ANDROID_API__=24" \
+  LDFLAGS="-landroid -llog -lz" \
+  --enable-shared \
+  --with-pic \
   ;
 
-RUN \
-  for hdr in resolv_params.h resolv_private.h resolv_static.h resolv_stats.h; do \
-    curl https://android.googlesource.com/platform/bionic/+/refs/heads/android12--mainline-release/libc/dns/include/$hdr?format=TEXT | base64 -d > $hdr; \
-  done
-RUN make -j7
-# To this (copy the embed SAPI library):
-RUN cp /root/build/sapi/embed/.libs/libphp.so /root/install/php.so || \
-    cp /root/build/sapi/embed/libphp.so /root/install/php.so || \
-    echo "ERROR: Could not find embed library!"
+# Add debugging to see what's happening during make
+RUN echo "Starting build..." && \
+    make -j$(nproc) V=1 2>&1 | tee build.log && \
+    if [ ${PIPESTATUS[0]} -ne 0 ]; then \
+        echo "Build failed, showing last 50 lines of log:"; \
+        tail -50 build.log; \
+        exit 1; \
+    fi
+
+# Check what libraries were built
+RUN echo "=== Checking build results ===" && \
+    find /root/build -type f -name "*.so" -exec ls -la {} \; && \
+    find /root/build -type f -name "*.a" -exec ls -la {} \;
+
+# Copy the embed SAPI library (try multiple possible locations)
+RUN cp /root/build/sapi/embed/.libs/libphp.so /root/install/php.so 2>/dev/null || \
+    cp /root/build/sapi/embed/libphp.so /root/install/php.so 2>/dev/null || \
+    cp /root/build/libs/libphp.so /root/install/php.so 2>/dev/null || \
+    cp /root/build/libphp.so /root/install/php.so 2>/dev/null || \
+    echo "ERROR: Could not find any embed library!" && \
+    find /root/build -name "libphp*" -type f
+
 RUN cp /root/sqlite-amalgamation-${SQLITE3_VERSION}/libsqlite3.so /root/install/libsqlite3.so
 
-# --- FINAL STAGE FIX (Including Headers) ---
+# --- FINAL STAGE ---
 FROM alpine:3.21
-# Install minimal dependencies needed to run basic shell commands and list files
 RUN apk update && apk add --no-cache bash
 
 # Copy the compiled binaries
@@ -89,10 +113,9 @@ COPY --from=buildsystem /root/install/php.so /artifacts/php.so
 COPY --from=buildsystem /root/install/libsqlite3.so /artifacts/libsqlite3.so
 
 # Copy PHP Source/Headers required for external linking (Android NDK projects)
-# Note: We use the default PHP version '8.4.2' as the folder name.
 COPY --from=buildsystem /root/php-8.4.2 /artifacts/headers/php
 
-# Copy PHP Build/Headers (you will need them trust me)
+# Copy PHP Build/Headers (generated config headers)
 COPY --from=buildsystem /root/build/ /artifacts/headers/php/build/
 
 # Expose the artifacts folder
