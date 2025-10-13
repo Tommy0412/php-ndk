@@ -51,7 +51,11 @@ RUN for p in /root/patches/*.patch; do \
       fi; \
     done
 
-# --- Configure and build PHP ---
+# --- Remove problem files before configure ---
+RUN rm -f ext/standard/dns.c \
+       ext/standard/gettext.c \
+       ext/standard/iconv.c
+
 # --- Configure and build PHP ---
 RUN ./buildconf --force || true && \
     SQLITE_CFLAGS="-I/root/sqlite-amalgamation-3470200" \
@@ -63,10 +67,6 @@ RUN ./buildconf --force || true && \
       --enable-cli \
       --enable-embed=shared \
       --with-sqlite3 \
-      --without-dns \
-      --without-gettext \
-      --without-pear \
-      --without-iconv \
       --prefix=/root/build/install && \
     make -j$(nproc) && \
     make install
