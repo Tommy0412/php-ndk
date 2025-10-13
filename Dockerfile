@@ -53,13 +53,15 @@ RUN for p in /root/patches/*.patch; do \
 
 # --- Configure and build PHP ---
 RUN ./buildconf --force || true && \
+    SQLITE_CFLAGS="-I/root/sqlite-amalgamation-3470200" \
+    SQLITE_LIBS="-L/root/sqlite-amalgamation-3470200 -lsqlite3" \
     ./configure \
       --host=${TARGET} \
       --target=${TARGET} \
       --disable-all \
       --enable-cli \
       --enable-embed=shared \
-      --with-sqlite3=/root/sqlite-amalgamation-3470200 \
+      --with-sqlite3 \
       --prefix=/root/build/install && \
     make -j$(nproc) && \
     make install
