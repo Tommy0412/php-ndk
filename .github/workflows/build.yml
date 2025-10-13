@@ -1,4 +1,4 @@
-name: Build and Release PHP NDK Artifacts
+name: Build PHP NDK Artifacts
 
 on:
   push:
@@ -7,84 +7,41 @@ on:
 
 jobs:
   build_and_package:
+    runs-on: ubuntu-latest
     strategy:
       matrix:
-        architecture:
-          - abi: "armeabi-v7a"
-            target: "armv7a-linux-androideabi32"
-          - abi: "arm64-v8a"
-            target: "aarch64-linux-android24"
-    runs-on: ubuntu-latest
+        abi: [armeabi-v7a, arm64-v8a]
+        target: [armv7a-linux-androideabi32, aarch64-linux-android]
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Build PHP/SQLite for ${{ matrix.architecture.abi }}
+      - name: Build PHP & SQLite for ${{ matrix.abi }}
         run: |
           docker build \
-            --build-arg TARGET="${{ matrix.architecture.target }}" \
-            --target buildsystem \
-            --tag php-ndk-builder:${{ matrix.architecture.abi }} .
+            --build-arg TARGET=${{ matrix.target }} \
+            --tag php-ndk-builder:${{ matrix.abi }} .
 
-      - name: Create artifact directory
+      - name: Extract Binaries & Headers
         run: |
-          mkdir -p release-package/binaries/${{ matrix.architecture.abi }}
-          if [ "${{ matrix.architecture.abi }}" == "armeabi-v7a" ]; then
-            mkdir -p release-package/includes/php
+          mkdir -p release-package/${{ matrix.abi }}
+          CONTAINER_ID=$(docker create php-ndk-builder:${{ matrix.abi }})
+          
+          # Copy .so files
+          docker cp $CONTAINER_ID:/root/build/install/php.so ./release-package/${{ matrix.abi }}/
+          docker cp $CONTAINER_ID:/root/build/install/libsqlite3.so ./release-package/${{ matrix.abi }}/
+
+          # Copy headers only once (for first ABI)
+          if [ "${{ matrix.abi }}" == "armeabi-v7a" ]; then
+            mkdir -p release-package/include
+            docker cp $CONTAINER_ID:/root/build/install/php-headers/. ./release-package/include/php
           fi
 
-      - name: Extract binaries and headers
-        run: |
-          CONTAINER_ID=$(docker create php-ndk-builder:${{ matrix.architecture.abi }})
-          docker cp $CONTAINER_ID:/root/build/install/. ./release-package/binaries/${{ matrix.architecture.abi }}
-          if [ "${{ matrix.architecture.abi }}" == "armeabi-v7a" ]; then
-            docker cp $CONTAINER_ID:/root/build/install/php-headers/. ./release-package/includes/php
-          fi
           docker rm $CONTAINER_ID
 
-      - name: Upload ABI artifacts
+      - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: php-ndk-artifacts-${{ matrix.architecture.abi }}
-          path: release-package/binaries/${{ matrix.architecture.abi }}
-          if-no-files-found: ignore
-
-  release:
-    needs: build_and_package
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
-
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Download ABI artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: ./release-package/binaries
-
-      - name: Prepare final directory structure
-        run: |
-          mkdir -p ./php-ndk-artifacts/lib/armeabi-v7a
-          mkdir -p ./php-ndk-artifacts/lib/arm64-v8a
-          mkdir -p ./php-ndk-artifacts/include/php
-          cp -r release-package/includes/php/* ./php-ndk-artifacts/include/php
-
-      - name: Move binaries and rename php.so
-        run: |
-          mv ./release-package/binaries/armeabi-v7a/php.so ./php-ndk-artifacts/lib/armeabi-v7a/libphp_sapi.so
-          mv ./release-package/binaries/armeabi-v7a/libsqlite3.so ./php-ndk-artifacts/lib/armeabi-v7a/libsqlite3.so
-          mv ./release-package/binaries/arm64-v8a/php.so ./php-ndk-artifacts/lib/arm64-v8a/libphp_sapi.so
-          mv ./release-package/binaries/arm64-v8a/libsqlite3.so ./php-ndk-artifacts/lib/arm64-v8a/libsqlite3.so
-
-      - name: Create ZIP release
-        run: |
-          zip -r php-ndk-artifacts.zip php-ndk-artifacts
-
-      - name: Upload release asset
-        uses: softprops/action-gh-release@v2
-        with:
-          files: php-ndk-artifacts.zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          name: php-ndk-artifacts-${{ matrix.abi }}
+          path: release-package/${{ matrix.abi }}
