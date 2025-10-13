@@ -38,9 +38,15 @@ RUN wget https://www.php.net/distributions/php-${PHP_VERSION}.tar.gz \
     && tar -xvf php-${PHP_VERSION}.tar.gz
 
 # --- Apply patches if any (optional) ---
-COPY *.patch /root/ || true
+COPY *.patch /root/
 WORKDIR /root/php-${PHP_VERSION}
-RUN for f in /root/*.patch; do [ -f "$f" ] && patch -p1 < "$f" || true; done
+RUN \
+patch -p1 < ../ext-standard-dns.c.patch && \
+patch -p1 < ../resolv.patch && \
+patch -p1 < ../ext-standard-php_fopen_wrapper.c.patch && \
+patch -p1 < ../main-streams-cast.c.patch && \
+patch -p1 < ../fork.patch \
+;
 
 # ==========================================
 # Stage 3: Configure PHP (embedded mode)
