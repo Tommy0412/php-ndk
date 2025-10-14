@@ -73,8 +73,8 @@ RUN for hdr in resolv_params.h resolv_private.h resolv_static.h resolv_stats.h; 
     done
 
 # Build PHP embed library
-RUN make -j7 sapi/embed/libphp.so
-#RUN make install
+RUN make -j7
+RUN make install
 
 # Copy the embed library and SQLite
 RUN cp sapi/embed/.libs/libphp.so /root/install/php.so || \
