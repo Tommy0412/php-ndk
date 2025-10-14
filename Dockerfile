@@ -72,14 +72,13 @@ RUN for hdr in resolv_params.h resolv_private.h resolv_static.h resolv_stats.h; 
       curl https://android.googlesource.com/platform/bionic/+/refs/heads/android12--mainline-release/libc/dns/include/$hdr?format=TEXT | base64 -d > $hdr; \
     done
 
-# Build PHP embed library
-RUN make -j7
-RUN make install
+# Build and install PHP with embed SAPI
+RUN make -j7 && make install
 
 # Copy the embed library and SQLite
-RUN cp sapi/embed/.libs/libphp.so /root/install/php.so || \
-    cp sapi/embed/libphp.so /root/install/php.so || \
+RUN cp /root/php-android-output/lib/libphp.so /root/install/php.so || \
     echo "ERROR: Could not find embed library!"
+
 RUN cp /root/sqlite-amalgamation-${SQLITE3_VERSION}/libsqlite3.so /root/install/libsqlite3.so
 
 # --- FINAL STAGE ---
