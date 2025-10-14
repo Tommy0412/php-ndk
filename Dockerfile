@@ -49,7 +49,7 @@ RUN ../php-${PHP_VERSION}/configure \
   --host=${TARGET} \
   --prefix=/root/php-android-output \
   --enable-embed=shared \
-  --enable-cli \
+  --disable-cli \
   --disable-cgi \
   --disable-fpm \
   --disable-dom \
@@ -73,8 +73,8 @@ RUN for hdr in resolv_params.h resolv_private.h resolv_static.h resolv_stats.h; 
     done
 
 # Build PHP embed library
-RUN make -j$(nproc)
-RUN make install
+RUN make -j7 sapi/embed/libphp.so
+#RUN make install
 
 # Copy the embed library and SQLite
 RUN cp sapi/embed/.libs/libphp.so /root/install/php.so || \
