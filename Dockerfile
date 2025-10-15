@@ -81,9 +81,6 @@ RUN ../php-${PHP_VERSION}/configure \
   --with-openssl=/root/openssl-android \
   --with-curl \
   CC=${TARGET}-clang \
-  CFLAGS="--sysroot=${NDK_ROOT}/sysroot -D__ANDROID_API__=${TARGET##*android}" \
-  LDFLAGS="-L/root/openssl-android/lib" \
-  CPPFLAGS="--sysroot=${NDK_ROOT}/sysroot -D__ANDROID_API__=${TARGET##*android}" \
   SQLITE_CFLAGS="-I/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
   SQLITE_LIBS="-lsqlite3 -L/root/sqlite-amalgamation-${SQLITE3_VERSION}"
 
