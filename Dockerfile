@@ -1,6 +1,6 @@
 FROM alpine:3.21 AS buildsystem
 
-# Install dependencies including Perl for OpenSSL build
+# Install dependencies
 RUN apk update && apk add --no-cache \
     wget unzip gcompat libgcc bash patch make curl build-base \
     openssl-dev curl-dev perl
@@ -21,18 +21,17 @@ ARG TARGET=aarch64-linux-android32
 ARG PHP_VERSION=8.4.2
 ENV SQLITE3_VERSION=3470200
 
-# Download and build OpenSSL for Android (proper approach)
+# Download and build OpenSSL for Android (NDK r27c uses Clang)
 RUN wget https://www.openssl.org/source/openssl-3.0.14.tar.gz && \
     tar -xzf openssl-3.0.14.tar.gz && \
     cd openssl-3.0.14 && \
-    export ANDROID_NDK_ROOT=${NDK_ROOT} && \
-    export MACHINE=aarch64 && \
-    export RELEASE=android-21 && \
-    export SYSTEM=android && \
-    export ARCH=aarch64 && \
-    export CROSS_COMPILE=${TARGET}- && \
-    ./Configure linux-aarch64 --prefix=/root/openssl-android --openssldir=/root/openssl-android/ssl && \
-    make -j7 && make install && \
+    CC=${TARGET}-clang \
+    ./Configure linux-aarch64 \
+    --prefix=/root/openssl-android \
+    --openssldir=/root/openssl-android/ssl \
+    --cross-compile-prefix="" \
+    -D__ANDROID_API__=32 && \
+    make -j7 && make install_sw && \
     cd ..
 
 # Download and build SQLite
@@ -60,7 +59,7 @@ WORKDIR /root
 RUN mkdir build install
 WORKDIR /root/build
 
-# Configure PHP for embed
+# Configure PHP with Android OpenSSL
 RUN ../php-${PHP_VERSION}/configure \
   --host=${TARGET} \
   --prefix=/root/php-android-output \
@@ -82,6 +81,9 @@ RUN ../php-${PHP_VERSION}/configure \
   --with-openssl=/root/openssl-android \
   --with-curl \
   CC=${TARGET}-clang \
+  CFLAGS="--sysroot=${NDK_ROOT}/sysroot -D__ANDROID_API__=${TARGET##*android}" \
+  LDFLAGS="-L/root/openssl-android/lib" \
+  CPPFLAGS="--sysroot=${NDK_ROOT}/sysroot -D__ANDROID_API__=${TARGET##*android}" \
   SQLITE_CFLAGS="-I/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
   SQLITE_LIBS="-lsqlite3 -L/root/sqlite-amalgamation-${SQLITE3_VERSION}"
 
@@ -90,7 +92,7 @@ RUN for hdr in resolv_params.h resolv_private.h resolv_static.h resolv_stats.h; 
       curl https://android.googlesource.com/platform/bionic/+/refs/heads/android12--mainline-release/libc/dns/include/$hdr?format=TEXT | base64 -d > $hdr; \
     done
 
-# Build and install PHP with embed SAPI
+# Build and install PHP
 RUN make -j7 && make install
 
 # Copy the embed library and SQLite
@@ -101,14 +103,9 @@ RUN cp /root/sqlite-amalgamation-${SQLITE3_VERSION}/libsqlite3.so /root/install/
 
 # --- FINAL STAGE ---
 FROM alpine:3.21
-
-# Minimal runtime dependencies
 RUN apk update && apk add --no-cache bash
-
-# Copy artifacts from build stage
 COPY --from=buildsystem /root/install/php.so /artifacts/php.so
 COPY --from=buildsystem /root/install/libsqlite3.so /artifacts/libsqlite3.so
 COPY --from=buildsystem /root/php-${PHP_VERSION} /artifacts/headers/php
 COPY --from=buildsystem /root/build/ /artifacts/headers/php/build/
-
 WORKDIR /artifacts
