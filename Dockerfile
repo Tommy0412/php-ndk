@@ -1,7 +1,9 @@
 FROM alpine:3.21 AS buildsystem
 
 # Install dependencies
-RUN apk update && apk add --no-cache wget unzip gcompat libgcc bash patch make curl build-base
+RUN apk update && apk add --no-cache \
+    wget unzip gcompat libgcc bash patch make curl build-base \
+    openssl-dev curl-dev
 
 # Set up Android NDK
 WORKDIR /opt
@@ -44,6 +46,14 @@ WORKDIR /root
 RUN mkdir build install
 WORKDIR /root/build
 
+# Download and build OpenSSL for Android (simplified approach)
+RUN wget https://www.openssl.org/source/openssl-3.0.14.tar.gz && \
+    tar -xzf openssl-3.0.14.tar.gz && \
+    cd openssl-3.0.14 && \
+    ./Configure android-${TARGET##*-} --prefix=/root/openssl-android && \
+    make -j7 && make install && \
+    cd ..
+
 # Configure PHP for embed
 RUN ../php-${PHP_VERSION}/configure \
   --host=${TARGET} \
@@ -63,6 +73,8 @@ RUN ../php-${PHP_VERSION}/configure \
   --disable-phpdbg \
   --with-sqlite3 \
   --with-pdo-sqlite \
+  --with-openssl=/root/openssl-android \
+  --with-curl \
   CC=${TARGET}-clang \
   SQLITE_CFLAGS="-I/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
   SQLITE_LIBS="-lsqlite3 -L/root/sqlite-amalgamation-${SQLITE3_VERSION}"
