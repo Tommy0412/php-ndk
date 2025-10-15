@@ -21,11 +21,17 @@ ARG TARGET=aarch64-linux-android32
 ARG PHP_VERSION=8.4.2
 ENV SQLITE3_VERSION=3470200
 
-# Download and build OpenSSL for Android
+# Download and build OpenSSL for Android (proper approach)
 RUN wget https://www.openssl.org/source/openssl-3.0.14.tar.gz && \
     tar -xzf openssl-3.0.14.tar.gz && \
     cd openssl-3.0.14 && \
-    ./Configure android-${TARGET##*android} --prefix=/root/openssl-android-linux && \
+    export ANDROID_NDK_ROOT=${NDK_ROOT} && \
+    export MACHINE=aarch64 && \
+    export RELEASE=android-21 && \
+    export SYSTEM=android && \
+    export ARCH=aarch64 && \
+    export CROSS_COMPILE=${TARGET}- && \
+    ./Configure linux-aarch64 --prefix=/root/openssl-android --openssldir=/root/openssl-android/ssl && \
     make -j7 && make install && \
     cd ..
 
