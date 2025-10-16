@@ -96,8 +96,12 @@ WORKDIR /root
 RUN mkdir -p build install
 WORKDIR /root/build
 
-# Configure PHP for embed with OpenSSL and cURL - WORKING
-RUN PKG_CONFIG_PATH="/root/openssl-install/lib/pkgconfig:/root/curl-install/lib/pkgconfig" OPENSSL_CFLAGS="-I/root/openssl-install/include" OPENSSL_LIBS="-L/root/openssl-install/lib -lssl -lcrypto" CURL_CFLAGS="-I/root/curl-install/include" CURL_LIBS="-L/root/curl-install/lib -lcurl" ../php-${PHP_VERSION}/configure \
+RUN PKG_CONFIG_PATH="/root/openssl-install/lib/pkgconfig:/root/curl-install/lib/pkgconfig:${PKG_CONFIG_PATH}" \
+  OPENSSL_CFLAGS="-I/root/openssl-install/include" \
+  OPENSSL_LIBS="-L/root/openssl-install/lib -lssl -lcrypto" \
+  CURL_CFLAGS="-I/root/curl-install/include" \
+  CURL_LIBS="-L/root/curl-install/lib -lcurl" \
+  ../php-${PHP_VERSION}/configure \
   --host=${TARGET} \
   --target=${TARGET} \
   --prefix=/root/php-android-output \
@@ -105,15 +109,13 @@ RUN PKG_CONFIG_PATH="/root/openssl-install/lib/pkgconfig:/root/curl-install/lib/
   --disable-cli \
   --disable-cgi \
   --disable-fpm \
+  --disable-xml \
   --disable-dom \
   --disable-simplexml \
-  --disable-xml \
   --disable-xmlreader \
   --disable-xmlwriter \
   --without-pear \
-  --without-libxml \
   --disable-phar \
-  --disable-phpdbg \
   --with-sqlite3 \
   --with-pdo-sqlite \
   --with-openssl=/root/openssl-install \
@@ -124,8 +126,6 @@ RUN PKG_CONFIG_PATH="/root/openssl-install/lib/pkgconfig:/root/curl-install/lib/
   --enable-pcntl \
   CC=${CC} \
   CXX=${CXX} \
-  SQLITE_CFLAGS="-I/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
-  SQLITE_LIBS="-lsqlite3 -L/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
   CFLAGS="-DANDROID -fPIE -fPIC \
           -I/root/sqlite-amalgamation-${SQLITE3_VERSION} \
           -I/root/openssl-install/include \
