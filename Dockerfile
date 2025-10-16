@@ -93,9 +93,7 @@ RUN for patch in ../*.patch; do [ -f "$patch" ] && patch -p1 < "$patch" || true;
 
 # Prepare build directories
 WORKDIR /root
-
-# Install required dependencies BEFORE running ./configure
-RUN mkdir -p build install
+RUN mkdir build install
 WORKDIR /root/build
 
 # Configure PHP - MINIMAL WORKING VERSION
