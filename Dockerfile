@@ -97,7 +97,7 @@ RUN mkdir -p build install
 WORKDIR /root/build
 
 # Configure PHP for embed with OpenSSL and cURL
-RUN ../php-${PHP_VERSION}/configure \
+RUN PKG_CONFIG_PATH="/root/openssl-install/lib/pkgconfig:/root/curl-install/lib/pkgconfig" ../php-${PHP_VERSION}/configure \
   --host=${TARGET} \
   --target=${TARGET} \
   --prefix=/root/php-android-output \
