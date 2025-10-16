@@ -9,6 +9,8 @@ RUN apk update && apk add --no-cache \
 WORKDIR /opt
 ENV NDK_VERSION=android-ndk-r27c-linux
 ENV NDK_ROOT=/opt/android-ndk-r27c
+ENV ANDROID_NDK_HOME=${NDK_ROOT}  # For OpenSSL 1.1.x
+ENV ANDROID_NDK_ROOT=${NDK_ROOT}  # For OpenSSL 3.x
 RUN wget https://dl.google.com/android/repository/${NDK_VERSION}.zip && \
     unzip ${NDK_VERSION}.zip && \
     rm ${NDK_VERSION}.zip
@@ -44,7 +46,6 @@ RUN ./Configure android-arm64 \
     shared \         
     no-asm \          
     no-comp \
-    no-hw \
     no-engine && \
     make -j7 && \
     make install_sw
@@ -86,7 +87,7 @@ RUN ./configure \
     --without-brotli \
     --without-zstd \
     CPPFLAGS="-I${SYSROOT}/usr/include -fPIC" \
-    LDFLAGS="-static" && \
+    LDFLAGS="-L/root/openssl-install/lib"
     make -j7 && \
     make install
 
@@ -173,6 +174,10 @@ RUN cp /root/php-android-output/lib/libphp.so /root/install/ 2>/dev/null || \
     (echo "ERROR: Could not find embed library!" && find /root -name "*php*.so" -type f)
 
 RUN cp /root/sqlite-amalgamation-${SQLITE3_VERSION}/libsqlite3.so /root/install/
+
+RUN cp /root/openssl-install/lib/libssl.so.* artifacts/binaries/ 2>/dev/null || true
+RUN cp /root/openssl-install/lib/libcrypto.so.* artifacts/binaries/ 2>/dev/null || true
+RUN cp /root/curl-install/lib/libcurl.so.* artifacts/binaries/ 2>/dev/null || true
 
 # Create a test script to verify extensions
 RUN echo "<?php echo 'OpenSSL: ' . (extension_loaded('openssl') ? 'LOADED' : 'MISSING') . PHP_EOL; echo 'cURL: ' . (extension_loaded('curl') ? 'LOADED' : 'MISSING') . PHP_EOL; echo 'SQLite: ' . (extension_loaded('sqlite3') ? 'LOADED' : 'MISSING') . PHP_EOL; ?>" > /root/install/test_extensions.php
