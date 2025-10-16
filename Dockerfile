@@ -96,8 +96,8 @@ WORKDIR /root
 RUN mkdir -p build install
 WORKDIR /root/build
 
-# Configure PHP for embed with OpenSSL and cURL
-RUN PKG_CONFIG_PATH="/root/openssl-install/lib/pkgconfig:/root/curl-install/lib/pkgconfig" ../php-${PHP_VERSION}/configure \
+# Configure PHP for embed with OpenSSL and cURL - FIXED
+RUN OPENSSL_CFLAGS="-I/root/openssl-install/include" OPENSSL_LIBS="-L/root/openssl-install/lib -lssl -lcrypto" ../php-${PHP_VERSION}/configure \
   --host=${TARGET} \
   --target=${TARGET} \
   --prefix=/root/php-android-output \
@@ -119,10 +119,8 @@ RUN PKG_CONFIG_PATH="/root/openssl-install/lib/pkgconfig:/root/curl-install/lib/
   --with-openssl=/root/openssl-install \
   --with-curl=/root/curl-install \
   --enable-mbstring \
-  --enable-json \
   --enable-bcmath \
   --enable-filter \
-  --enable-hash \
   --enable-pcntl \
   CC=${CC} \
   CXX=${CXX} \
@@ -147,18 +145,12 @@ RUN cp /root/openssl-install/lib/libssl.so.1.1 /root/install/
 RUN cp /root/openssl-install/lib/libcrypto.so.1.1 /root/install/
 RUN cp /root/curl-install/lib/libcurl.so.4 /root/install/
 
-# Create a test script
-RUN echo "<?php echo 'OpenSSL: ' . (extension_loaded('openssl') ? 'LOADED' : 'MISSING') . PHP_EOL; echo 'cURL: ' . (extension_loaded('curl') ? 'LOADED' : 'MISSING') . PHP_EOL; echo 'SQLite: ' . (extension_loaded('sqlite3') ? 'LOADED' : 'MISSING') . PHP_EOL; ?>" > /root/install/test_extensions.php
-
 # --- FINAL STAGE ---
 FROM alpine:3.21
 
 # Copy all artifacts
 COPY --from=buildsystem /root/install/ /artifacts/
 COPY --from=buildsystem /root/build/ /artifacts/headers/php-build/
-COPY --from=buildsystem /root/php-${PHP_VERSION}/ /artifacts/headers/php-source/
+COPY --from=buildsystem /root/php-${PHP_VERSION} /artifacts/headers/php-source
 
 WORKDIR /artifacts
-
-# Create manifest
-RUN find . -type f | sort > manifest.txt
