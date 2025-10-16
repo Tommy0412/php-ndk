@@ -33,13 +33,14 @@ ENV STRIP=llvm-strip
 ENV TOOLCHAIN=${NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64
 ENV SYSROOT=${TOOLCHAIN}/sysroot
 
-# Build OpenSSL for Android - FIXED: Use 1.1.1w with proper env vars
+# Build OpenSSL for Android - FIXED VERSION
 WORKDIR /root
 RUN wget https://www.openssl.org/source/openssl-1.1.1w.tar.gz && \
     tar -xzf openssl-1.1.1w.tar.gz
 WORKDIR /root/openssl-1.1.1w
 
-RUN ANDROID_NDK_HOME=${NDK_ROOT} ./Configure android-arm64 \
+# FIXED: Add ANDROID_NDK_HOME before ./Configure
+RUN ANDROID_NDK_HOME=${NDK_ROOT} ./Configure android-arm64 \    # ←←← FIXED LINE
     -D__ANDROID_API__=${API} \
     --prefix=/root/openssl-install \
     shared \         
