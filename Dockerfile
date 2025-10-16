@@ -93,6 +93,12 @@ RUN for patch in ../*.patch; do [ -f "$patch" ] && patch -p1 < "$patch" || true;
 
 # Prepare build directories
 WORKDIR /root
+
+# Install required dependencies BEFORE running ./configure
+RUN apk add --no-cache \
+    libxml2-dev \
+    pkgconfig \
+    build-base
 RUN mkdir -p build install
 WORKDIR /root/build
 
@@ -109,11 +115,6 @@ RUN PKG_CONFIG_PATH="/root/openssl-install/lib/pkgconfig:/root/curl-install/lib/
   --disable-cli \
   --disable-cgi \
   --disable-fpm \
-  --disable-xml \
-  --disable-dom \
-  --disable-simplexml \
-  --disable-xmlreader \
-  --disable-xmlwriter \
   --without-pear \
   --disable-phar \
   --with-sqlite3 \
