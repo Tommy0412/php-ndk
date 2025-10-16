@@ -125,6 +125,7 @@ RUN PKG_CONFIG_PATH="/root/onig-install/lib/pkgconfig:/root/openssl-install/lib/
     --enable-embed=shared \
     --disable-all \
     --with-sqlite3 \
+    --enable-pdo \
     --with-pdo-sqlite \
     --with-openssl=/root/openssl-install \
     --with-curl=/root/curl-install \
