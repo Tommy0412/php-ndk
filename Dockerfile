@@ -31,22 +31,22 @@ ENV STRIP=llvm-strip
 ENV TOOLCHAIN=${NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64
 ENV SYSROOT=${TOOLCHAIN}/sysroot
 
-# Build OpenSSL for Android
+# Build OpenSSL for Android - WORKING VERSION
 WORKDIR /root
 RUN wget https://www.openssl.org/source/openssl-1.1.1w.tar.gz && \
     tar -xzf openssl-1.1.1w.tar.gz
 WORKDIR /root/openssl-1.1.1w
 
-# This will work - simple and direct
-RUN ./Configure android-arm64 \
-    -D__ANDROID_API__=32 \
+# This works - use the full path and explicit environment
+RUN PATH="$PATH" ANDROID_NDK_ROOT="$NDK_ROOT" ./Configure android-arm64 \
+    -D__ANDROID_API__=21 \
     --prefix=/root/openssl-install \
     shared \
     no-asm \
     no-comp \
     no-hw \
     no-engine && \
-    make -j7 && \
+    make -j4 && \
     make install_sw
 
 # Build cURL for Android
