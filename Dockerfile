@@ -122,18 +122,18 @@ RUN PKG_CONFIG_PATH="/root/onig-install/lib/pkgconfig:/root/openssl-install/lib/
     --host=${TARGET} \
     --target=${TARGET} \
     --prefix=/root/php-android-output \
-    --enable-embed=shared \
-    --disable-all \
-    --with-sqlite3 \
-    --enable-pdo \
-    --with-pdo-sqlite \
-    --with-openssl=/root/openssl-install \
-    --with-curl=/root/curl-install \
-    --enable-json \
-    --enable-mbstring \
-    --enable-bcmath \
-    --enable-filter \
-    --enable-hash \
+    --disable-cli \
+    --disable-cgi \
+    --disable-fpm \
+    --disable-dom \
+    --disable-simplexml \
+    --disable-xml \
+    --disable-xmlreader \
+    --disable-xmlwriter \
+    --without-pear \
+    --without-libxml \
+    --disable-phar \
+    --disable-phpdbg \
     CC=${CC} \
     CXX=${CXX} \
     SQLITE_CFLAGS="-I/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
