@@ -182,7 +182,6 @@ FROM alpine:3.21
 
 # Copy ALL artifacts from build stage to a predictable location
 COPY --from=buildsystem /root/install/ /artifacts/binaries/
-COPY --from=buildsystem /root/php-${PHP_VERSION}/ /artifacts/headers/php/
 COPY --from=buildsystem /root/build/ /artifacts/headers/php/build/
 COPY --from=buildsystem /root/php-android-output/ /artifacts/php-install/
 
