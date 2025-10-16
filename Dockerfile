@@ -9,7 +9,6 @@ RUN apk update && apk add --no-cache \
 WORKDIR /opt
 ENV NDK_VERSION=android-ndk-r27c-linux
 ENV NDK_ROOT=/opt/android-ndk-r27c
-ENV ANDROID_NDK_HOME=${NDK_ROOT}
 RUN wget https://dl.google.com/android/repository/${NDK_VERSION}.zip && \
     unzip ${NDK_VERSION}.zip && \
     rm ${NDK_VERSION}.zip
@@ -38,8 +37,9 @@ RUN wget https://www.openssl.org/source/openssl-1.1.1w.tar.gz && \
     tar -xzf openssl-1.1.1w.tar.gz
 WORKDIR /root/openssl-1.1.1w
 
-RUN ANDROID_NDK_HOME="$NDK_ROOT" ./Configure android-arm64 \
-    -D__ANDROID_API__=${API} \
+# This will work - simple and direct
+RUN ./Configure android-arm64 \
+    -D__ANDROID_API__=32 \
     --prefix=/root/openssl-install \
     shared \
     no-asm \
