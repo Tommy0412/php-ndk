@@ -10,7 +10,6 @@ WORKDIR /opt
 ENV NDK_VERSION=android-ndk-r27c-linux
 ENV NDK_ROOT=/opt/android-ndk-r27c
 ENV ANDROID_NDK_HOME=${NDK_ROOT}
-ENV ANDROID_NDK_ROOT=${NDK_ROOT}
 RUN wget https://dl.google.com/android/repository/${NDK_VERSION}.zip && \
     unzip ${NDK_VERSION}.zip && \
     rm ${NDK_VERSION}.zip
