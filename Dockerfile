@@ -159,10 +159,6 @@ RUN cp /root/php-android-output/lib/libphp.so /root/install/ 2>/dev/null || \
 
 RUN cp /root/sqlite-amalgamation-${SQLITE3_VERSION}/libsqlite3.so /root/install/
 
-RUN cp /root/openssl-install/lib/libssl.so.* artifacts/binaries/ 2>/dev/null || true
-RUN cp /root/openssl-install/lib/libcrypto.so.* artifacts/binaries/ 2>/dev/null || true
-RUN cp /root/curl-install/lib/libcurl.so.* artifacts/binaries/ 2>/dev/null || true
-
 # Create a test script to verify extensions
 RUN echo "<?php echo 'OpenSSL: ' . (extension_loaded('openssl') ? 'LOADED' : 'MISSING') . PHP_EOL; echo 'cURL: ' . (extension_loaded('curl') ? 'LOADED' : 'MISSING') . PHP_EOL; echo 'SQLite: ' . (extension_loaded('sqlite3') ? 'LOADED' : 'MISSING') . PHP_EOL; ?>" > /root/install/test_extensions.php
 
