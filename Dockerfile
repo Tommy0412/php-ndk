@@ -32,13 +32,13 @@ ENV STRIP=llvm-strip
 ENV TOOLCHAIN=${NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64
 ENV SYSROOT=${TOOLCHAIN}/sysroot
 
-# Build OpenSSL for Android - FIXED VERSION
+# Build OpenSSL 1.1.1w instead (more reliable for cross-compilation)
 WORKDIR /root
-RUN wget https://www.openssl.org/source/openssl-3.5.2.tar.gz && \
-    tar -xzf openssl-3.5.2.tar.gz
-WORKDIR /root/openssl-3.5.2
+RUN wget https://www.openssl.org/source/openssl-1.1.1w.tar.gz && \
+    tar -xzf openssl-1.1.1w.tar.gz
+WORKDIR /root/openssl-1.1.1w
 
-# Method 1: Use the newer OpenSSL 3.0 which has better Android support
+# OpenSSL 1.1.1 doesn't need ANDROID_NDK_ROOT
 RUN ./Configure android-arm64 \
     -D__ANDROID_API__=${API} \
     --prefix=/root/openssl-install \
