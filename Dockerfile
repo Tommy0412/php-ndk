@@ -69,6 +69,7 @@ RUN ./configure \
     --without-brotli \
     --without-zstd \
     --without-libpsl \
+    --with-zlib \
     CPPFLAGS="-I${SYSROOT}/usr/include -fPIC" \
     LDFLAGS="-L/root/openssl-install/lib" && \
     make -j7 && \
