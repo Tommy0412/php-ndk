@@ -160,6 +160,11 @@ RUN PKG_CONFIG_PATH="/root/onig-install/lib/pkgconfig:/root/openssl-install/lib/
              -L/root/onig-install/lib \
              -L${SYSROOT}/usr/lib/${TARGET}/${API}"
 
+# Download missing Android DNS headers
+RUN for hdr in resolv_params.h resolv_private.h resolv_static.h resolv_stats.h; do \
+      curl https://android.googlesource.com/platform/bionic/+/refs/heads/android12--mainline-release/libc/dns/include/$hdr?format=TEXT | base64 -d > $hdr; \
+    done
+
 # Build and install PHP with embed SAPI
 RUN make -j7 && make install
 
