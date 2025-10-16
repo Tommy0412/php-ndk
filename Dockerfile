@@ -101,10 +101,16 @@ WORKDIR /root
 RUN wget https://www.php.net/distributions/php-${PHP_VERSION}.tar.gz && \
     tar -xvf php-${PHP_VERSION}.tar.gz
 
-# Apply patches
-COPY *.patch /root/
+# Copy patches from repo into container
+COPY *.patch /root/patches/
+
+# Apply all patches
 WORKDIR /root/php-${PHP_VERSION}
-RUN for patch in ../*.patch; do [ -f "$patch" ] && patch -p1 < "$patch" || true; done
+RUN echo "Patches in /root/patches:" && ls -l /root/patches && \
+    for patch in /root/patches/*.patch; do \
+        echo "Applying $patch"; \
+        patch -p1 < "$patch"; \
+    done
 
 # Prepare build directories
 WORKDIR /root
