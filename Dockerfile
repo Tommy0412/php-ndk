@@ -9,8 +9,7 @@ RUN apk update && apk add --no-cache \
 WORKDIR /opt
 ENV NDK_VERSION=android-ndk-r27c-linux
 ENV NDK_ROOT=/opt/android-ndk-r27c
-ENV ANDROID_NDK_HOME=${NDK_ROOT}  # For OpenSSL 1.1.x
-ENV ANDROID_NDK_ROOT=${NDK_ROOT}  # For OpenSSL 3.x
+ENV ANDROID_NDK_ROOT=${NDK_ROOT}
 RUN wget https://dl.google.com/android/repository/${NDK_VERSION}.zip && \
     unzip ${NDK_VERSION}.zip && \
     rm ${NDK_VERSION}.zip
