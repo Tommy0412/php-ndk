@@ -96,8 +96,8 @@ WORKDIR /root
 RUN mkdir -p build install
 WORKDIR /root/build
 
-# Configure PHP for embed with OpenSSL and cURL - FINAL FIX
-RUN OPENSSL_CFLAGS="-I/root/openssl-install/include" OPENSSL_LIBS="-L/root/openssl-install/lib -lssl -lcrypto" CURL_CFLAGS="-I/root/curl-install/include" CURL_LIBS="-L/root/curl-install/lib -lcurl" ../php-${PHP_VERSION}/configure \
+# Configure PHP
+RUN OPENSSL_CFLAGS="-I/root/openssl-install/include" OPENSSL_LIBS="-L/root/openssl-install/lib -lssl -lcrypto" CURL_CFLAGS="-I/root/curl-install/include" CURL_LIBS="-L/root/curl-install/lib -lcurl" ONIG_CFLAGS="" ONIG_LIBS="" ../php-${PHP_VERSION}/configure \
   --host=${TARGET} \
   --target=${TARGET} \
   --prefix=/root/php-android-output \
