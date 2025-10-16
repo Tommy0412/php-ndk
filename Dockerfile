@@ -97,7 +97,7 @@ RUN mkdir -p build install
 WORKDIR /root/build
 
 # Configure PHP for embed with OpenSSL and cURL - FIXED
-RUN OPENSSL_CFLAGS="-I/root/openssl-install/include" OPENSSL_LIBS="-L/root/openssl-install/lib -lssl -lcrypto" SQLITE_CFLAGS="-I/root/sqlite-amalgamation-${SQLITE3_VERSION}" SQLITE_LIBS="-L/root/sqlite-amalgamation-${SQLITE3_VERSION} -lsqlite3" ../php-${PHP_VERSION}/configure \
+RUN OPENSSL_CFLAGS="-I/root/openssl-install/include" OPENSSL_LIBS="-L/root/openssl-install/lib -lssl -lcrypto" ../php-${PHP_VERSION}/configure \
   --host=${TARGET} \
   --target=${TARGET} \
   --prefix=/root/php-android-output \
@@ -124,6 +124,8 @@ RUN OPENSSL_CFLAGS="-I/root/openssl-install/include" OPENSSL_LIBS="-L/root/opens
   --enable-pcntl \
   CC=${CC} \
   CXX=${CXX} \
+  SQLITE_CFLAGS="-I/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
+  SQLITE_LIBS="-lsqlite3 -L/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
   CFLAGS="-DANDROID -fPIE -fPIC \
           -I/root/sqlite-amalgamation-${SQLITE3_VERSION} \
           -I/root/openssl-install/include \
