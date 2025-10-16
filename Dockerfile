@@ -82,6 +82,20 @@ RUN wget https://www.sqlite.org/2024/sqlite-amalgamation-${SQLITE3_VERSION}.zip 
 WORKDIR /root/sqlite-amalgamation-${SQLITE3_VERSION}
 RUN ${CC} -o libsqlite3.so -shared -fPIC sqlite3.c
 
+# Build Oniguruma for Android
+WORKDIR /root
+RUN wget https://github.com/kkos/oniguruma/releases/download/v6.9.9/onig-6.9.9.tar.gz && \
+    tar -xzf onig-6.9.9.tar.gz
+WORKDIR /root/onig-6.9.9
+
+RUN ./configure \
+    --host=${TARGET} \
+    --prefix=/root/onig-install \
+    CC=${CC} \
+    CFLAGS="-fPIC" && \
+    make -j$(nproc) && \
+    make install
+
 # Download PHP source
 WORKDIR /root
 RUN wget https://www.php.net/distributions/php-${PHP_VERSION}.tar.gz && \
@@ -97,41 +111,50 @@ WORKDIR /root
 RUN mkdir build install
 WORKDIR /root/build
 
-# Configure PHP - WITH CURL ENVIRONMENT VARIABLES
-RUN PKG_CONFIG_PATH="/root/openssl-install/lib/pkgconfig" OPENSSL_CFLAGS="-I/root/openssl-install/include" OPENSSL_LIBS="-L/root/openssl-install/lib -lssl -lcrypto" CURL_CFLAGS="-I/root/curl-install/include" CURL_LIBS="-L/root/curl-install/lib -lcurl" ../php-${PHP_VERSION}/configure \
-  --host=${TARGET} \
-  --target=${TARGET} \
-  --prefix=/root/php-android-output \
-  --enable-embed=shared \
-  --disable-all \
-  --with-sqlite3 \
-  --with-pdo-sqlite \
-  --with-openssl=/root/openssl-install \
-  --with-curl=/root/curl-install \
-  --enable-json \
-  --enable-mbstring \
-  --enable-bcmath \
-  --enable-filter \
-  --enable-hash \
-  CC=${CC} \
-  CXX=${CXX} \
-  SQLITE_CFLAGS="-I/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
-  SQLITE_LIBS="-lsqlite3 -L/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
-  CFLAGS="-DANDROID -fPIE -fPIC \
-          -I/root/sqlite-amalgamation-${SQLITE3_VERSION} \
-          -I/root/openssl-install/include \
-          -I/root/curl-install/include \
-          -I${SYSROOT}/usr/include" \
-  LDFLAGS="-pie -shared \
-           -L/root/sqlite-amalgamation-${SQLITE3_VERSION} \
-           -L/root/openssl-install/lib \
-           -L/root/curl-install/lib \
-           -L${SYSROOT}/usr/lib/${TARGET}/${API}"
+RUN PKG_CONFIG_PATH="/root/onig-install/lib/pkgconfig:/root/openssl-install/lib/pkgconfig:/root/curl-install/lib/pkgconfig" \
+  OPENSSL_CFLAGS="-I/root/openssl-install/include" \
+  OPENSSL_LIBS="-L/root/openssl-install/lib -lssl -lcrypto" \
+  CURL_CFLAGS="-I/root/curl-install/include" \
+  CURL_LIBS="-L/root/curl-install/lib -lcurl" \
+  ONIG_CFLAGS="-I/root/onig-install/include" \
+  ONIG_LIBS="-L/root/onig-install/lib -lonig" \
+  ../php-${PHP_VERSION}/configure \
+    --host=${TARGET} \
+    --target=${TARGET} \
+    --prefix=/root/php-android-output \
+    --enable-embed=shared \
+    --disable-all \
+    --with-sqlite3 \
+    --with-pdo-sqlite \
+    --with-openssl=/root/openssl-install \
+    --with-curl=/root/curl-install \
+    --enable-json \
+    --enable-mbstring \
+    --enable-bcmath \
+    --enable-filter \
+    --enable-hash \
+    CC=${CC} \
+    CXX=${CXX} \
+    SQLITE_CFLAGS="-I/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
+    SQLITE_LIBS="-lsqlite3 -L/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
+    CFLAGS="-DANDROID -fPIE -fPIC \
+            -I/root/sqlite-amalgamation-${SQLITE3_VERSION} \
+            -I/root/openssl-install/include \
+            -I/root/curl-install/include \
+            -I/root/onig-install/include \
+            -I${SYSROOT}/usr/include" \
+    LDFLAGS="-pie -shared \
+             -L/root/sqlite-amalgamation-${SQLITE3_VERSION} \
+             -L/root/openssl-install/lib \
+             -L/root/curl-install/lib \
+             -L/root/onig-install/lib \
+             -L${SYSROOT}/usr/lib/${TARGET}/${API}"
 
 # Build and install PHP with embed SAPI
 RUN make -j7 && make install
 
 # Copy the compiled libraries
+RUN cp /root/onig-install/lib/libonig.so /root/install/
 RUN cp /root/php-android-output/lib/libphp.so /root/install/
 RUN cp /root/sqlite-amalgamation-${SQLITE3_VERSION}/libsqlite3.so /root/install/
 RUN cp /root/openssl-install/lib/libssl.so.1.1 /root/install/
@@ -145,5 +168,6 @@ FROM alpine:3.21
 COPY --from=buildsystem /root/install/ /artifacts/
 COPY --from=buildsystem /root/build/ /artifacts/headers/php-build/
 COPY --from=buildsystem /root/php-8.4.2/ /artifacts/headers/php-source/
+COPY --from=buildsystem /root/install/libonig.so /artifacts/libonig.so
 
 WORKDIR /artifacts
