@@ -97,8 +97,8 @@ WORKDIR /root
 RUN mkdir build install
 WORKDIR /root/build
 
-# Configure PHP - MINIMAL WORKING VERSION
-RUN PKG_CONFIG_PATH="/root/openssl-install/lib/pkgconfig:/root/curl-install/lib/pkgconfig" ../php-${PHP_VERSION}/configure \
+# Configure PHP - WITH CURL ENVIRONMENT VARIABLES
+RUN PKG_CONFIG_PATH="/root/openssl-install/lib/pkgconfig" OPENSSL_CFLAGS="-I/root/openssl-install/include" OPENSSL_LIBS="-L/root/openssl-install/lib -lssl -lcrypto" CURL_CFLAGS="-I/root/curl-install/include" CURL_LIBS="-L/root/curl-install/lib -lcurl" ../php-${PHP_VERSION}/configure \
   --host=${TARGET} \
   --target=${TARGET} \
   --prefix=/root/php-android-output \
