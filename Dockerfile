@@ -9,7 +9,8 @@ RUN apk update && apk add --no-cache \
 WORKDIR /opt
 ENV NDK_VERSION=android-ndk-r27c-linux
 ENV NDK_ROOT=/opt/android-ndk-r27c
-ENV ANDROID_NDK_ROOT=${NDK_ROOT}
+ENV ANDROID_NDK_HOME=${NDK_ROOT}  # For OpenSSL 1.1.1
+ENV ANDROID_NDK_ROOT=${NDK_ROOT}  # For OpenSSL 3.x
 RUN wget https://dl.google.com/android/repository/${NDK_VERSION}.zip && \
     unzip ${NDK_VERSION}.zip && \
     rm ${NDK_VERSION}.zip
@@ -32,30 +33,31 @@ ENV STRIP=llvm-strip
 ENV TOOLCHAIN=${NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64
 ENV SYSROOT=${TOOLCHAIN}/sysroot
 
-# Build OpenSSL 1.1.1w instead (more reliable for cross-compilation)
+# Build OpenSSL for Android - FIXED: Use 1.1.1w with proper env vars
 WORKDIR /root
 RUN wget https://www.openssl.org/source/openssl-1.1.1w.tar.gz && \
     tar -xzf openssl-1.1.1w.tar.gz
 WORKDIR /root/openssl-1.1.1w
 
-# OpenSSL 1.1.1 doesn't need ANDROID_NDK_ROOT
-RUN ./Configure android-arm64 \
+# FIX: Export ANDROID_NDK_HOME in the same RUN command
+RUN export ANDROID_NDK_HOME=${NDK_ROOT} && \
+    ./Configure android-arm64 \
     -D__ANDROID_API__=${API} \
     --prefix=/root/openssl-install \
-    shared \         
-    no-asm \          
+    shared \
+    no-asm \
     no-comp \
+    no-hw \
     no-engine && \
     make -j7 && \
     make install_sw
 
-# Build cURL for Android
+# Build cURL for Android - Keep the fixed version
 WORKDIR /root
 RUN wget https://curl.se/download/curl-8.13.0.tar.gz && \
     tar -xzf curl-8.13.0.tar.gz
 WORKDIR /root/curl-8.13.0
 
-# FIXED: Added line break before 'make'
 RUN ./configure \
     --host=${TARGET} \
     --target=${TARGET} \
@@ -71,7 +73,7 @@ RUN ./configure \
     --without-brotli \
     --without-zstd \
     CPPFLAGS="-I${SYSROOT}/usr/include -fPIC" \
-    LDFLAGS="-L/root/openssl-install/lib" && \ 
+    LDFLAGS="-L/root/openssl-install/lib" && \
     make -j7 && \
     make install
 
