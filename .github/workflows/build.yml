@@ -12,7 +12,8 @@ jobs:
       matrix:
         architecture:
           - abi: "arm64-v8a"
-            target: "aarch64-linux-android32"
+            target: "aarch64-linux-android"
+            api: "32"
 
     steps:
       - name: Checkout Code
@@ -23,34 +24,48 @@ jobs:
         id: build-docker-target
         run: |
           docker build \
-            --target buildsystem \
             --tag php-ndk-builder:${{ matrix.architecture.abi }} \
-            --build-arg NDK_TARGET="${{ matrix.architecture.target }}" \
+            --build-arg TARGET="${{ matrix.architecture.target }}" \
+            --build-arg API="${{ matrix.architecture.api }}" \
             .
 
       # --- Package Stage: Extracting Binaries and Headers ---
       - name: Create Artifact Directory
-        id: create-dir
         run: |
           mkdir -p release-package/binaries/${{ matrix.architecture.abi }}
-          mkdir -p release-package/includes/php
+          mkdir -p release-package/includes
 
       - name: Extract Compiled Binaries and Headers
-        id: extract
         run: |
+          # Create container from the built image
           CONTAINER_ID=$(docker create php-ndk-builder:${{ matrix.architecture.abi }})
-          docker cp $CONTAINER_ID:/root/install/. ./release-package/binaries/${{ matrix.architecture.abi }}
-          docker cp $CONTAINER_ID:/root/php-8.4.2/. ./release-package/includes/php
-          # Copy the generated build headers (including zend_config.h)
-          docker cp $CONTAINER_ID:/root/build/. ./release-package/includes/php/build/
+          
+          # Extract binaries - look for libphp.so in multiple possible locations
+          docker cp $CONTAINER_ID:/artifacts/ ./release-package/binaries/${{ matrix.architecture.abi }} || \
+          docker cp $CONTAINER_ID:/root/install/ ./release-package/binaries/${{ matrix.architecture.abi }} || \
+          docker cp $CONTAINER_ID:/root/php-android-output/ ./release-package/binaries/${{ matrix.architecture.abi }} || \
+          echo "Warning: Could not find binaries in expected locations"
+          
+          # Extract headers
+          docker cp $CONTAINER_ID:/artifacts/headers/ ./release-package/includes/ || \
+          docker cp $CONTAINER_ID:/root/php-8.4.2/ ./release-package/includes/php/ || \
+          echo "Warning: Could not find headers in expected locations"
+          
           docker rm $CONTAINER_ID
+
+      - name: Verify Artifacts
+        run: |
+          echo "=== Checking extracted files ==="
+          find release-package/ -type f -name "*.so" | head -10
+          find release-package/ -name "*.h" | head -5
+          ls -la release-package/binaries/${{ matrix.architecture.abi }}/
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: php-ndk-artifacts-${{ matrix.architecture.abi }}
-          path: release-package/binaries/${{ matrix.architecture.abi }}
-          if-no-files-found: ignore
+          path: release-package/
+          if-no-files-found: error
 
   # --- Final Release Stage ---
   release:
@@ -62,32 +77,42 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Download ABI artifact
+      - name: Download All Artifacts
         uses: actions/download-artifact@v4
         with:
-          path: ./release-package/binaries
+          path: ./downloaded-artifacts
 
-      - name: Prepare Final Directory Structure and Copy Headers
+      - name: Prepare Final Release Structure
         run: |
-          mkdir -p ./php-ndk-artifacts/lib/arm64-v8a
-          mkdir -p ./php-ndk-artifacts/include
+          mkdir -p php-ndk-artifacts/lib/arm64-v8a
+          mkdir -p php-ndk-artifacts/include/php
+          
+          # Find and copy the PHP shared library
+          find downloaded-artifacts -name "libphp.so" -exec cp {} php-ndk-artifacts/lib/arm64-v8a/ \; || \
+          find downloaded-artifacts -name "php.so" -exec cp {} php-ndk-artifacts/lib/arm64-v8a/libphp.so \; || \
+          (echo "ERROR: Could not find PHP shared library" && exit 1)
+          
+          # Copy SQLite library
+          find downloaded-artifacts -name "libsqlite3.so" -exec cp {} php-ndk-artifacts/lib/arm64-v8a/ \; || \
+          echo "Warning: Could not find SQLite library"
+          
+          # Copy headers
+          cp -r downloaded-artifacts/php-ndk-artifacts-arm64-v8a/release-package/includes/* php-ndk-artifacts/include/ || \
+          cp -r downloaded-artifacts/php-ndk-artifacts-arm64-v8a/release-package/includes/php/* php-ndk-artifacts/include/php/ || \
+          echo "Warning: Could not copy headers"
 
-          # Extract headers one final time from builder image
-          docker build --target buildsystem --tag header-extractor --build-arg NDK_TARGET="aarch64-linux-android32" .
-          CONTAINER_ID=$(docker create header-extractor)
-          docker cp $CONTAINER_ID:/root/php-8.4.2/. ./php-ndk-artifacts/include/php
-          # Copy the generated build headers (including zend_config.h)
-          docker cp $CONTAINER_ID:/root/build/. ./php-ndk-artifacts/include/php/build/
-          docker rm $CONTAINER_ID
-
-      - name: Move Binaries and Rename php.so
+      - name: Verify Final Artifacts
         run: |
-          mv ./release-package/binaries/php-ndk-artifacts-arm64-v8a/* ./php-ndk-artifacts/lib/arm64-v8a/
-          mv ./php-ndk-artifacts/lib/arm64-v8a/php.so ./php-ndk-artifacts/lib/arm64-v8a/libphp.so
+          echo "=== Final artifact structure ==="
+          tree php-ndk-artifacts/ || ls -la php-ndk-artifacts/
+          echo "=== Library verification ==="
+          file php-ndk-artifacts/lib/arm64-v8a/*.so || echo "No libraries found"
+          echo "=== Header verification ==="
+          find php-ndk-artifacts/include/ -name "*.h" | head -5
 
       - name: Create ZIP Release Asset
         run: |
-          zip -r php-ndk-artifacts.zip php-ndk-artifacts
+          zip -r php-ndk-artifacts.zip php-ndk-artifacts/
 
       - name: Upload Release Asset
         uses: softprops/action-gh-release@v2
