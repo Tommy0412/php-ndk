@@ -117,8 +117,8 @@ RUN PKG_CONFIG_PATH="/root/openssl-install/lib/pkgconfig:/root/curl-install/lib/
   --disable-fpm \
   --without-pear \
   --disable-phar \
-  --with-sqlite3 \
-  --with-pdo-sqlite \
+  --with-sqlite3=/root/sqlite-amalgamation-${SQLITE3_VERSION} \
+  --with-pdo-sqlite=/root/sqlite-amalgamation-${SQLITE3_VERSION} \
   --with-openssl=/root/openssl-install \
   --with-curl=/root/curl-install \
   --enable-mbstring \
