@@ -153,6 +153,6 @@ FROM alpine:3.21
 # Copy all artifacts
 COPY --from=buildsystem /root/install/ /artifacts/
 COPY --from=buildsystem /root/build/ /artifacts/headers/php-build/
-COPY --from=buildsystem /root/php-${PHP_VERSION} /artifacts/headers/php-source
+COPY --from=buildsystem /root/php-8.4.2/ /artifacts/headers/php-source/
 
 WORKDIR /artifacts
