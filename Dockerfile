@@ -9,8 +9,8 @@ RUN apk update && apk add --no-cache \
 WORKDIR /opt
 ENV NDK_VERSION=android-ndk-r27c-linux
 ENV NDK_ROOT=/opt/android-ndk-r27c
-ENV ANDROID_NDK_HOME=${NDK_ROOT}  # For OpenSSL 1.1.1
-ENV ANDROID_NDK_ROOT=${NDK_ROOT}  # For OpenSSL 3.x
+ENV ANDROID_NDK_HOME=${NDK_ROOT}
+ENV ANDROID_NDK_ROOT=${NDK_ROOT}
 RUN wget https://dl.google.com/android/repository/${NDK_VERSION}.zip && \
     unzip ${NDK_VERSION}.zip && \
     rm ${NDK_VERSION}.zip
@@ -33,25 +33,25 @@ ENV STRIP=llvm-strip
 ENV TOOLCHAIN=${NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64
 ENV SYSROOT=${TOOLCHAIN}/sysroot
 
-# Build OpenSSL for Android - FIXED VERSION
+# Build OpenSSL for Android
 WORKDIR /root
 RUN wget https://www.openssl.org/source/openssl-1.1.1w.tar.gz && \
     tar -xzf openssl-1.1.1w.tar.gz
 WORKDIR /root/openssl-1.1.1w
 
-# FIXED: Add ANDROID_NDK_HOME before ./Configure
-RUN ANDROID_NDK_HOME=${NDK_ROOT} ./Configure android-arm64 \    # ←←← FIXED LINE
+# FIXED: Set ANDROID_NDK_HOME in the same command
+RUN ANDROID_NDK_HOME=${NDK_ROOT} ./Configure android-arm64 \
     -D__ANDROID_API__=${API} \
     --prefix=/root/openssl-install \
-    shared \         
-    no-asm \          
+    shared \
+    no-asm \
     no-comp \
     no-hw \
     no-engine && \
     make -j7 && \
     make install_sw
 
-# Build cURL for Android - Keep the fixed version
+# Build cURL for Android
 WORKDIR /root
 RUN wget https://curl.se/download/curl-8.13.0.tar.gz && \
     tar -xzf curl-8.13.0.tar.gz
@@ -137,48 +137,30 @@ RUN ../php-${PHP_VERSION}/configure \
            -L/root/sqlite-amalgamation-${SQLITE3_VERSION} \
            -L/root/openssl-install/lib \
            -L/root/curl-install/lib \
-           -L${SYSROOT}/usr/lib/${TARGET}/${API} \
-           -lcurl -lssl -lcrypto -lz -ldl"
-
-# Download missing Android DNS headers if needed
-RUN mkdir -p /root/dns-headers && \
-    cd /root/dns-headers && \
-    for hdr in resolv_params.h resolv_private.h resolv_static.h resolv_stats.h; do \
-      curl -f https://android.googlesource.com/platform/bionic/+/refs/heads/android12-mainline-release/libc/dns/include/$hdr?format=TEXT 2>/dev/null | base64 -d > $hdr || true; \
-    done
+           -L${SYSROOT}/usr/lib/${TARGET}/${API}"
 
 # Build and install PHP with embed SAPI
 RUN make -j7 && make install
 
-# Verify the build produced libphp.so
-RUN find /root -name "libphp.so" -o -name "php.so" | head -1
-
-# Copy the embed library and dependencies
-RUN cp /root/php-android-output/lib/libphp.so /root/install/ 2>/dev/null || \
-    cp /root/build/libs/libphp.so /root/install/ 2>/dev/null || \
-    (echo "ERROR: Could not find embed library!" && find /root -name "*php*.so" -type f)
-
+# Copy the compiled libraries
+RUN cp /root/php-android-output/lib/libphp.so /root/install/
 RUN cp /root/sqlite-amalgamation-${SQLITE3_VERSION}/libsqlite3.so /root/install/
+RUN cp /root/openssl-install/lib/libssl.so.1.1 /root/install/
+RUN cp /root/openssl-install/lib/libcrypto.so.1.1 /root/install/
+RUN cp /root/curl-install/lib/libcurl.so.4 /root/install/
 
-# Create a test script to verify extensions
+# Create a test script
 RUN echo "<?php echo 'OpenSSL: ' . (extension_loaded('openssl') ? 'LOADED' : 'MISSING') . PHP_EOL; echo 'cURL: ' . (extension_loaded('curl') ? 'LOADED' : 'MISSING') . PHP_EOL; echo 'SQLite: ' . (extension_loaded('sqlite3') ? 'LOADED' : 'MISSING') . PHP_EOL; ?>" > /root/install/test_extensions.php
 
 # --- FINAL STAGE ---
 FROM alpine:3.21
 
-# Copy ALL artifacts from build stage to a predictable location
-COPY --from=buildsystem /root/install/ /artifacts/binaries/
-COPY --from=buildsystem /root/build/ /artifacts/headers/php/build/
-COPY --from=buildsystem /root/php-android-output/ /artifacts/php-install/
+# Copy all artifacts
+COPY --from=buildsystem /root/install/ /artifacts/
+COPY --from=buildsystem /root/build/ /artifacts/headers/php-build/
+COPY --from=buildsystem /root/php-${PHP_VERSION}/ /artifacts/headers/php-source/
 
 WORKDIR /artifacts
 
-# Create a manifest of what was built
-RUN find . -type f -name "*.so" -o -name "*.h" | sort > manifest.txt
-
-# Verification step
-RUN echo "=== Build Artifacts ===" && \
-    ls -la && \
-    echo "=== Library Dependencies ===" && \
-    file php.so 2>/dev/null || file libphp.so 2>/dev/null || echo "No PHP library found!" && \
-    echo "=== Test Extension Loading ==="
+# Create manifest
+RUN find . -type f | sort > manifest.txt
