@@ -139,12 +139,12 @@ RUN PKG_CONFIG_PATH="/root/onig-install/lib/pkgconfig:/root/openssl-install/lib/
     CXX=${CXX} \
     SQLITE_CFLAGS="-I/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
     SQLITE_LIBS="-lsqlite3 -L/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
-    CFLAGS="-DANDROID -fPIE -fPIC -Dexplicit_bzero=memset \  
-            -I/root/sqlite-amalgamation-${SQLITE3_VERSION} \
-            -I/root/openssl-install/include \
-            -I/root/curl-install/include \
-            -I/root/onig-install/include \
-            -I${SYSROOT}/usr/include" \
+    CFLAGS="-DANDROID -fPIE -fPIC -Dexplicit_bzero\(a,b\)=memset\(a,0,b\) \    # ← FIXED!
+        -I/root/sqlite-amalgamation-${SQLITE3_VERSION} \
+        -I/root/openssl-install/include \
+        -I/root/curl-install/include \
+        -I/root/onig-install/include \
+        -I${SYSROOT}/usr/include" \
     LDFLAGS="-pie -shared \
              -L/root/sqlite-amalgamation-${SQLITE3_VERSION} \
              -L/root/openssl-install/lib \
