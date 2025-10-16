@@ -132,7 +132,7 @@ RUN PKG_CONFIG_PATH="/root/onig-install/lib/pkgconfig:/root/openssl-install/lib/
     --disable-xmlreader \
     --disable-xmlwriter \
     --disable-posix \
-    --disable-dns
+    --disable-dns \
     --without-pear \
     --without-libxml \
     --disable-phar \
