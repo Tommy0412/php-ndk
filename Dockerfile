@@ -161,15 +161,16 @@ RUN echo "<?php echo 'OpenSSL: ' . (extension_loaded('openssl') ? 'LOADED' : 'MI
 # --- FINAL STAGE ---
 FROM alpine:3.21
 
-# Minimal runtime dependencies
-RUN apk update && apk add --no-cache bash file
-
-# Copy artifacts from build stage
-COPY --from=buildsystem /root/install/ /artifacts/
-COPY --from=buildsystem /root/php-${PHP_VERSION} /artifacts/headers/php
+# Copy ALL artifacts from build stage to a predictable location
+COPY --from=buildsystem /root/install/ /artifacts/binaries/
+COPY --from=buildsystem /root/php-${PHP_VERSION}/ /artifacts/headers/php/
 COPY --from=buildsystem /root/build/ /artifacts/headers/php/build/
+COPY --from=buildsystem /root/php-android-output/ /artifacts/php-install/
 
 WORKDIR /artifacts
+
+# Create a manifest of what was built
+RUN find . -type f -name "*.so" -o -name "*.h" | sort > manifest.txt
 
 # Verification step
 RUN echo "=== Build Artifacts ===" && \
