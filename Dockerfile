@@ -31,21 +31,41 @@ ENV STRIP=llvm-strip
 ENV TOOLCHAIN=${NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64
 ENV SYSROOT=${TOOLCHAIN}/sysroot
 
-# Build OpenSSL for Android
+# Build OpenSSL for Android - FIXED VERSION
 WORKDIR /root
-RUN wget https://www.openssl.org/source/openssl-1.1.1w.tar.gz && \
-    tar -xzf openssl-1.1.1w.tar.gz
-WORKDIR /root/openssl-1.1.1w
+RUN wget https://www.openssl.org/source/openssl-3.0.13.tar.gz && \
+    tar -xzf openssl-3.0.13.tar.gz
+WORKDIR /root/openssl-3.0.13
+
+# Method 1: Use the newer OpenSSL 3.0 which has better Android support
 RUN ./Configure android-arm64 \
     -D__ANDROID_API__=${API} \
     --prefix=/root/openssl-install \
     no-shared \
-    no-asm \
-    no-comp \
+    no-stdio \
+    no-dso \
+    no-engine \
     no-hw \
-    no-engine && \
+    no-comp && \
     make -j7 && \
     make install_sw
+
+# Alternative: If you prefer OpenSSL 1.1.1, use this approach:
+# WORKDIR /root
+# RUN wget https://www.openssl.org/source/openssl-1.1.1w.tar.gz && \
+#     tar -xzf openssl-1.1.1w.tar.gz
+# WORKDIR /root/openssl-1.1.1w
+# RUN export ANDROID_NDK_HOME=${NDK_ROOT} && \
+#     ./Configure android-arm64 \
+#     -D__ANDROID_API__=${API} \
+#     --prefix=/root/openssl-install \
+#     no-shared \
+#     no-asm \
+#     no-comp \
+#     no-hw \
+#     no-engine && \
+#     make -j7 && \
+#     make install_sw
 
 # Build cURL for Android
 WORKDIR /root
