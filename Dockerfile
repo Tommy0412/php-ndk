@@ -33,20 +33,19 @@ ENV SYSROOT=${TOOLCHAIN}/sysroot
 
 # Build OpenSSL for Android - FIXED VERSION
 WORKDIR /root
-RUN wget https://www.openssl.org/source/openssl-3.0.13.tar.gz && \
-    tar -xzf openssl-3.0.13.tar.gz
-WORKDIR /root/openssl-3.0.13
+RUN wget https://www.openssl.org/source/openssl-3.5.2.tar.gz && \
+    tar -xzf openssl-3.5.2.tar.gz
+WORKDIR /root/openssl-3.5.2
 
 # Method 1: Use the newer OpenSSL 3.0 which has better Android support
 RUN ./Configure android-arm64 \
     -D__ANDROID_API__=${API} \
     --prefix=/root/openssl-install \
-    no-shared \
-    no-stdio \
-    no-dso \
-    no-engine \
+    shared \         
+    no-asm \          
+    no-comp \
     no-hw \
-    no-comp && \
+    no-engine && \
     make -j7 && \
     make install_sw
 
@@ -69,16 +68,16 @@ RUN ./Configure android-arm64 \
 
 # Build cURL for Android
 WORKDIR /root
-RUN wget https://curl.se/download/curl-7.88.1.tar.gz && \
-    tar -xzf curl-7.88.1.tar.gz
-WORKDIR /root/curl-7.88.1
+RUN wget https://curl.se/download/curl-8.13.0.tar.gz && \
+    tar -xzf curl-8.13.0.tar.gz
+WORKDIR /root/curl-8.13.0
 RUN ./configure \
     --host=${TARGET} \
     --target=${TARGET} \
     --with-ssl=/root/openssl-install \
     --prefix=/root/curl-install \
-    --disable-shared \
-    --enable-static \
+    --enable-shared \
+    --disable-static \
     --disable-verbose \
     --enable-ipv6 \
     --disable-manual \
