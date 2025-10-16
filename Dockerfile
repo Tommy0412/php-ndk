@@ -95,38 +95,29 @@ RUN for patch in ../*.patch; do [ -f "$patch" ] && patch -p1 < "$patch" || true;
 WORKDIR /root
 
 # Install required dependencies BEFORE running ./configure
-RUN apk add --no-cache \
-    libxml2-dev \
-    pkgconfig \
-    build-base
 RUN mkdir -p build install
 WORKDIR /root/build
 
-RUN PKG_CONFIG_PATH="/root/openssl-install/lib/pkgconfig:/root/curl-install/lib/pkgconfig:${PKG_CONFIG_PATH}" \
-  OPENSSL_CFLAGS="-I/root/openssl-install/include" \
-  OPENSSL_LIBS="-L/root/openssl-install/lib -lssl -lcrypto" \
-  CURL_CFLAGS="-I/root/curl-install/include" \
-  CURL_LIBS="-L/root/curl-install/lib -lcurl" \
-  ../php-${PHP_VERSION}/configure \
+# Configure PHP - MINIMAL WORKING VERSION
+RUN PKG_CONFIG_PATH="/root/openssl-install/lib/pkgconfig:/root/curl-install/lib/pkgconfig" ../php-${PHP_VERSION}/configure \
   --host=${TARGET} \
   --target=${TARGET} \
   --prefix=/root/php-android-output \
   --enable-embed=shared \
-  --disable-cli \
-  --disable-cgi \
-  --disable-fpm \
-  --without-pear \
-  --disable-phar \
-  --with-sqlite3=/root/sqlite-amalgamation-${SQLITE3_VERSION} \
-  --with-pdo-sqlite=/root/sqlite-amalgamation-${SQLITE3_VERSION} \
+  --disable-all \
+  --with-sqlite3 \
+  --with-pdo-sqlite \
   --with-openssl=/root/openssl-install \
   --with-curl=/root/curl-install \
+  --enable-json \
   --enable-mbstring \
   --enable-bcmath \
   --enable-filter \
-  --enable-pcntl \
+  --enable-hash \
   CC=${CC} \
   CXX=${CXX} \
+  SQLITE_CFLAGS="-I/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
+  SQLITE_LIBS="-lsqlite3 -L/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
   CFLAGS="-DANDROID -fPIE -fPIC \
           -I/root/sqlite-amalgamation-${SQLITE3_VERSION} \
           -I/root/openssl-install/include \
