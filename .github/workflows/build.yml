@@ -1,6 +1,7 @@
 name: Build and Release NDK Artifacts
 
 on:
+  workflow_dispatch:  # ← Add this for manual triggers
   push:
     tags:
       - 'v*.*.*'
