@@ -39,6 +39,7 @@ WORKDIR /root
 
 RUN ANDROID_NDK_HOME="/opt/android-ndk-r27c" ./Configure android-arm64 \
     -D__ANDROID_API__=21 \
+    -DOPENSSL_NO_EGD \
     --prefix=/root/openssl-install \
     shared \
     no-asm \
@@ -142,9 +143,6 @@ RUN sed -i 's/r = posix_spawn_file_actions_addchdir_np(&factions, cwd);/r = -1; 
 
 # syslog patch
 RUN sed -i 's/#define syslog std_syslog/#ifdef __ANDROID__\n#define syslog(...)\n#else\n#define syslog std_syslog\n#endif/' main/php_syslog.c
-
-# remove RAND_egd for openssl
-RUN sed -i 's/RAND_egd(/0 /g' ext/openssl/openssl.c
 
 # Prepare build directories
 WORKDIR /root
