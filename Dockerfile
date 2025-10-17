@@ -106,7 +106,6 @@ COPY *.patch /root/
 WORKDIR /root/php-${PHP_VERSION}
 
 RUN patch -p1 < ../ext-standard-dns-android-stub.patch && \
-    patch -p1 < ../ext-standard-dns.c.patch && \
     patch -p1 < ../resolv.patch && \
     patch -p1 < ../ext-standard-php_fopen_wrapper.c.patch && \
     patch -p1 < ../main-streams-cast.c.patch
