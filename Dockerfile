@@ -105,18 +105,13 @@ RUN wget https://www.php.net/distributions/php-${PHP_VERSION}.tar.gz && \
 COPY *.patch /root/
 WORKDIR /root/php-${PHP_VERSION}
 
-# Prepend Android DNS stub at the top of dns.c
-RUN cat << 'EOF' > ext/standard/dns.c.stub
-#ifdef __ANDROID__
-typedef void* dns_handle_t;
-static inline dns_handle_t dns_open(const char *nameserver) { return NULL; }
-static inline void dns_free(dns_handle_t handle) {}
-static inline int dns_search(dns_handle_t handle, const char *dname, int class, int type, unsigned char *answer, int anslen) { return -1; }
-#endif
-EOF
-
-RUN cat ext/standard/dns.c.stub ext/standard/dns.c > ext/standard/dns.c.new && \
-    mv ext/standard/dns.c.new ext/standard/dns.c
+RUN printf '#ifdef __ANDROID__\n' > ext/standard/dns.c && \
+    printf 'typedef void* dns_handle_t;\n' >> ext/standard/dns.c && \
+    printf 'static inline dns_handle_t dns_open(const char *nameserver) { return NULL; }\n' >> ext/standard/dns.c && \
+    printf 'static inline void dns_free(dns_handle_t handle) {}\n' >> ext/standard/dns.c && \
+    printf 'static inline int dns_search(dns_handle_t handle, const char *dname, int class, int type, unsigned char *answer, int anslen) { return -1; }\n' >> ext/standard/dns.c && \
+    printf '#endif\n\n' >> ext/standard/dns.c && \
+    cat ext/standard/dns.c.orig >> ext/standard/dns.c
 
 RUN patch -p1 < ../ext-standard-dns.c.patch && \
     patch -p1 < ../resolv.patch && \
