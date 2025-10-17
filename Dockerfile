@@ -161,6 +161,11 @@ RUN PKG_CONFIG_PATH="/root/onig-install/lib/pkgconfig:/root/openssl-install/lib/
     --prefix=/root/php-android-output \
     --enable-embed=shared \
     --enable-posix \
+    --with-openssl=/root/openssl-install \
+    --with-curl=/root/curl-install \
+    --with-onig=/root/onig-install \
+    --with-sqlite3 \
+    --with-pdo-sqlite \
     --disable-cli \
     --disable-cgi \
     --disable-fpm \
@@ -212,8 +217,8 @@ RUN make -j7 && make install
 RUN cp /root/onig-install/lib/libonig.so /root/install/
 RUN cp /root/php-android-output/lib/libphp.so /root/install/
 RUN cp /root/sqlite-amalgamation-${SQLITE3_VERSION}/libsqlite3.so /root/install/
-RUN cp /root/openssl-install/lib/libssl.so.1.1 /root/install/
-RUN cp /root/openssl-install/lib/libcrypto.so.1.1 /root/install/
+RUN cp /root/openssl-install/lib/libssl.so /root/install/
+RUN cp /root/openssl-install/lib/libcrypto.so /root/install/
 RUN cp /root/curl-install/lib/libcurl.so /root/install/
 
 # --- FINAL STAGE ---
