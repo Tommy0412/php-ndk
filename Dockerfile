@@ -105,7 +105,8 @@ RUN wget https://www.php.net/distributions/php-${PHP_VERSION}.tar.gz && \
 COPY *.patch /root/
 WORKDIR /root/php-${PHP_VERSION}
 
-RUN patch -p1 < ../resolv.patch && \
+RUN patch -p1 < ../ext-posix-posix.c.patch && \
+    patch -p1 < ../resolv.patch && \
     patch -p1 < ../ext-standard-php_fopen_wrapper.c.patch && \
     patch -p1 < ../main-streams-cast.c.patch
     
@@ -132,6 +133,15 @@ RUN { \
     cat ext/standard/dns.c; \
     echo '#endif'; \
 } > ext/standard/dns.c.new && mv ext/standard/dns.c.new ext/standard/dns.c
+
+# Patch proc_open.c for Android
+RUN sed -i 's/                r = posix_spawn_file_actions_addchdir_np(&factions, cwd);/\
+#ifdef __ANDROID__\n\
+                \/\* Android does not support posix_spawn_file_actions_addchdir_np \*\/\n\
+                r = -1; \/\/ Fall back to alternative behavior\n\
+#else\n\
+                r = posix_spawn_file_actions_addchdir_np(&factions, cwd);\n\
+#endif/' ext/standard/proc_open.c
 
 # Prepare build directories
 WORKDIR /root
