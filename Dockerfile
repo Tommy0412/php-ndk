@@ -127,6 +127,7 @@ RUN PKG_CONFIG_PATH="/root/onig-install/lib/pkgconfig:/root/openssl-install/lib/
     --target=${TARGET} \
     --prefix=/root/php-android-output \
     --enable-embed=shared \
+    --disable-dns \
     --disable-cli \
     --disable-cgi \
     --disable-fpm \
