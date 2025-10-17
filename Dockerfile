@@ -17,8 +17,8 @@ ENV PATH="${PATH}:${NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64/bin"
 
 # Prepare build environment
 WORKDIR /root
-ARG TARGET=aarch64-linux-android32
-ARG API=32
+ARG TARGET=aarch64-linux-android
+ARG API=21
 ARG PHP_VERSION=8.4.2
 ENV SQLITE3_VERSION=3470200
 
@@ -191,7 +191,8 @@ RUN PKG_CONFIG_PATH="/root/onig-install/lib/pkgconfig:/root/openssl-install/lib/
     CXX=${CXX} \
     SQLITE_CFLAGS="-I/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
     SQLITE_LIBS="-lsqlite3 -L/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
-    CFLAGS="-DOPENSSL_NO_EGD -DRAND_egd(file)=0 \ -DANDROID -fPIE -fPIC \
+    CFLAGS="-DOPENSSL_NO_EGD -DRAND_egd(file)=0 \
+        -DANDROID -fPIE -fPIC \
         -Dexplicit_bzero\(a,b\)=memset\(a,0,b\) \
         -I${SYSROOT}/usr/include \
         -I/root/sqlite-amalgamation-${SQLITE3_VERSION} \
