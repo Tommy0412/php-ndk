@@ -138,13 +138,7 @@ RUN { \
 RUN sed -i 's/r = posix_spawn_file_actions_addchdir_np(&factions, cwd);/r = -1; \/\/ Android compatibility/' ext/standard/proc_open.c
 
 # syslog patch
-RUN sed -i '1i\
-#ifdef __ANDROID__\n\
-void android_syslog(int priority, const char *format, ...) { /* Android syslog stub */ }\n\
-#define syslog android_syslog\n\
-#else\n\
-#define syslog std_syslog\n\
-#endif\n' main/php_syslog.c
+RUN sed -i 's/#define syslog std_syslog/#ifdef __ANDROID__\n#define syslog(...)\n#else\n#define syslog std_syslog\n#endif/' main/php_syslog.c
 
 # Prepare build directories
 WORKDIR /root
