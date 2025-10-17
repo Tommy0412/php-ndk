@@ -157,8 +157,7 @@ RUN PKG_CONFIG_PATH="/root/onig-install/lib/pkgconfig:/root/openssl-install/lib/
   ONIG_CFLAGS="-I/root/onig-install/include" \
   ONIG_LIBS="-L/root/onig-install/lib -lonig" \
   ../php-${PHP_VERSION}/configure \
-    --host=${TARGET} \
-    --target=${TARGET} \
+    --host=${TARGET}${API} \
     --prefix=/root/php-android-output \
     --enable-embed=shared \
     --enable-posix \
@@ -189,9 +188,9 @@ RUN PKG_CONFIG_PATH="/root/onig-install/lib/pkgconfig:/root/openssl-install/lib/
     CXX=${CXX} \
     SQLITE_CFLAGS="-I/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
     SQLITE_LIBS="-lsqlite3 -L/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
-    CFLAGS="-DOPENSSL_NO_EGD -D'RAND_egd(file)=0' \
+    CFLAGS="-DOPENSSL_NO_EGD -DRAND_egd\(file\)=0 \
         -DANDROID -fPIE -fPIC \
-        -D'explicit_bzero(a,b)=memset(a,0,b)' \
+        -Dexplicit_bzero\(a,b\)=memset\(a,0,b\) \
         -I${SYSROOT}/usr/include \
         -I/root/sqlite-amalgamation-${SQLITE3_VERSION} \
         -I/root/openssl-install/include \
