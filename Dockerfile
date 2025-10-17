@@ -214,21 +214,31 @@ RUN for hdr in resolv_params.h resolv_private.h resolv_static.h resolv_stats.h; 
 # Build and install PHP with embed SAPI
 RUN make -j7 && make install
 
-# Copy the compiled libraries
-RUN cp /root/onig-install/lib/libonig.so /root/install/
-RUN cp /root/php-android-output/lib/libphp.so /root/install/
-RUN cp /root/sqlite-amalgamation-${SQLITE3_VERSION}/libsqlite3.so /root/install/
-RUN cp /root/openssl-install/lib/libssl.so /root/install/
-RUN cp /root/openssl-install/lib/libcrypto.so /root/install/
-RUN cp /root/curl-install/lib/libcurl.so /root/install/
+# --- COPY COMPILED LIBRARIES TO INSTALL FOLDER ---
+RUN mkdir -p /root/install/lib /root/install/include
+
+# Copy all compiled shared libraries
+RUN cp /root/onig-install/lib/libonig.so /root/install/lib/ && \
+    cp /root/php-android-output/lib/libphp.so /root/install/lib/ && \
+    cp /root/sqlite-amalgamation-${SQLITE3_VERSION}/libsqlite3.so /root/install/lib/ && \
+    cp /root/openssl-install/lib/libssl.so.1.1 /root/install/lib/ && \
+    cp /root/openssl-install/lib/libcrypto.so.1.1 /root/install/lib/ && \
+    cp /root/curl-install/lib/libcurl.so /root/install/lib/
+
+# Copy headers from build to source include folders (so you have everything in one place)
+RUN mkdir -p /root/install/headers/php-build /root/install/headers/php-source && \
+    cp -r /root/build/* /root/install/headers/php-build/ && \
+    cp -r /root/php-8.4.2/* /root/install/headers/php-source/
 
 # --- FINAL STAGE ---
 FROM alpine:3.21
 
-# Copy all artifacts
+# Copy all artifacts to final image
 COPY --from=buildsystem /root/install/ /artifacts/
-COPY --from=buildsystem /root/build/ /artifacts/headers/php-build/
-COPY --from=buildsystem /root/php-8.4.2/ /artifacts/headers/php-source/
-COPY --from=buildsystem /root/install/libonig.so /artifacts/libonig.so
+
+# Shortcut: also copy direct access to libs for Android jniLibs or includes
+RUN mkdir -p /artifacts/lib && mkdir -p /artifacts/include && \
+    cp -r /artifacts/lib/*.so /artifacts/ && \
+    cp -r /artifacts/headers/php-source/main /artifacts/include/ || true
 
 WORKDIR /artifacts
