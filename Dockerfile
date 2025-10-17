@@ -143,6 +143,9 @@ RUN sed -i 's/r = posix_spawn_file_actions_addchdir_np(&factions, cwd);/r = -1; 
 # syslog patch
 RUN sed -i 's/#define syslog std_syslog/#ifdef __ANDROID__\n#define syslog(...)\n#else\n#define syslog std_syslog\n#endif/' main/php_syslog.c
 
+# remove RAND_egd for openssl
+RUN sed -i 's/RAND_egd(/0 /g' ext/openssl/openssl.c
+
 # Prepare build directories
 WORKDIR /root
 RUN mkdir build install
