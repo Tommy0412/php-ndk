@@ -137,7 +137,6 @@ RUN PKG_CONFIG_PATH="/root/onig-install/lib/pkgconfig:/root/openssl-install/lib/
     --disable-xml \
     --disable-xmlreader \
     --disable-xmlwriter \
-    --disable-dns \
     --disable-posix \
     --without-pear \
     --without-libxml \
@@ -164,6 +163,9 @@ RUN PKG_CONFIG_PATH="/root/onig-install/lib/pkgconfig:/root/openssl-install/lib/
 RUN for hdr in resolv_params.h resolv_private.h resolv_static.h resolv_stats.h; do \
       curl https://android.googlesource.com/platform/bionic/+/refs/heads/android12--mainline-release/libc/dns/include/$hdr?format=TEXT | base64 -d > $hdr; \
     done
+    
+# Disable broken DNS sources for Android
+RUN rm -f /root/php-${PHP_VERSION}/ext/standard/dns.c /root/php-${PHP_VERSION}/ext/standard/php_dns.h
 
 # Build and install PHP with embed SAPI
 RUN make -j7 && make install
