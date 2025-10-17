@@ -1,8 +1,8 @@
 --- a/ext/standard/dns.c
 +++ b/ext/standard/dns.c
-@@
+@@ -0,0 +1,12 @@
 +#ifdef __ANDROID__
-+// Stub types and functions to allow PHP DNS code to compile on Android
++// Android stub for DNS functions
 +typedef void* dns_handle_t;
 +
 +static inline dns_handle_t dns_open(const char *nameserver) {
@@ -15,12 +15,7 @@
 +}
 +
 +static inline int dns_search(dns_handle_t handle, const char *dname, int class, int type, unsigned char *answer, int anslen) {
-+    (void)handle;
-+    (void)dname;
-+    (void)class;
-+    (void)type;
-+    (void)answer;
-+    (void)anslen;
-+    return -1; // always fail
++    (void)handle; (void)dname; (void)class; (void)type; (void)answer; (void)anslen;
++    return -1;
 +}
 +#endif
