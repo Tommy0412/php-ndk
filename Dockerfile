@@ -186,19 +186,19 @@ RUN PKG_CONFIG_PATH="/root/onig-install/lib/pkgconfig:/root/openssl-install/lib/
     SQLITE_CFLAGS="-I/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
     SQLITE_LIBS="-lsqlite3 -L/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
     CFLAGS="-DANDROID -fPIE -fPIC \
-    -I${SYSROOT}/usr/include \
-    -I/root/sqlite-amalgamation-${SQLITE3_VERSION} \
-    -I/root/openssl-install/include \
-    -I/root/curl-install/include \
-    -I/root/onig-install/include" \
-    
+        -Dexplicit_bzero\(a,b\)=memset\(a,0,b\) \
+        -I${SYSROOT}/usr/include \
+        -I/root/sqlite-amalgamation-${SQLITE3_VERSION} \
+        -I/root/openssl-install/include \
+        -I/root/curl-install/include \
+        -I/root/onig-install/include" \
     LDFLAGS="-pie -shared \
-    -L/root/sqlite-amalgamation-${SQLITE3_VERSION} \
-    -L/root/openssl-install/lib \
-    -L/root/curl-install/lib \
-    -L/root/onig-install/lib \
-    -L${SYSROOT}/usr/lib/${TARGET}/${API} \
-    -lc -ldl"
+             -L/root/sqlite-amalgamation-${SQLITE3_VERSION} \
+             -L/root/openssl-install/lib \
+             -L/root/curl-install/lib \
+             -L/root/onig-install/lib \
+             -L${SYSROOT}/usr/lib/${TARGET}/${API} \
+             -lc -ldl"
 
 # Download missing Android DNS headers
 RUN for hdr in resolv_params.h resolv_private.h resolv_static.h resolv_stats.h; do \
