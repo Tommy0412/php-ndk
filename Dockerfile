@@ -164,7 +164,6 @@ RUN PKG_CONFIG_PATH="/root/onig-install/lib/pkgconfig:/root/openssl-install/lib/
     --enable-posix \
     --with-openssl=/root/openssl-install \
     --with-curl=/root/curl-install \
-    --with-onig=/root/onig-install \
     --with-sqlite3 \
     --with-pdo-sqlite \
     --disable-cli \
@@ -181,7 +180,6 @@ RUN PKG_CONFIG_PATH="/root/onig-install/lib/pkgconfig:/root/openssl-install/lib/
     --disable-phpdbg \
     --disable-opcache \
     --disable-opcache-jit \
-    --disable-opcache-file-cache \
     --disable-pcntl \
     --disable-shmop \
     --disable-sysvshm \
