@@ -1,8 +1,7 @@
 --- a/ext/standard/dns.c
 +++ b/ext/standard/dns.c
-@@ -0,0 +1,12 @@
+@@ -1,6 +1,17 @@
 +#ifdef __ANDROID__
-+// Android stub for DNS functions
 +typedef void* dns_handle_t;
 +
 +static inline dns_handle_t dns_open(const char *nameserver) {
@@ -19,3 +18,38 @@
 +    return -1;
 +}
 +#endif
++
+ #ifndef MAXHOSTNAMELEN
+ #define MAXHOSTNAMELEN 255
+ #endif
+@@ -57,6 +68,10 @@
+ #endif
+ #endif
++
++#ifdef __ANDROID__
++int __dn_skipname(const unsigned char *, const unsigned char *);
++#endif
+@@ -938,7 +953,7 @@
+ 			while (qd-- > 0) {
+-				n = dn_skipname(cp, end);
++				n = __dn_skipname(cp, end);
+ 				if (n < 0) {
+ 					php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to parse DNS data received");
+ 					zval_dtor(return_value);
+@@ -1049,14 +1064,14 @@
+ 	cp = (u_char *)&ans + HFIXEDSZ;
+ 	end = (u_char *)&ans +i;
+ 	for (qdc = ntohs((unsigned short)hp->qdcount); qdc--; cp += i + QFIXEDSZ) {
+-		if ((i = dn_skipname(cp, end)) < 0 ) {
++		if ((i = __dn_skipname(cp, end)) < 0 ) {
+ 			php_dns_free_handle(handle);
+ 			RETURN_FALSE;
+ 		}
+ 	}
+ 	count = ntohs((unsigned short)hp->ancount);
+ 	while (--count >= 0 && cp < end) {
+-		if ((i = dn_skipname(cp, end)) < 0 ) {
++		if ((i = __dn_skipname(cp, end)) < 0 ) {
+ 			php_dns_free_handle(handle);
+ 			RETURN_FALSE;
+ 		}
