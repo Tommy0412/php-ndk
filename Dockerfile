@@ -111,17 +111,21 @@ RUN patch -p1 < ../resolv.patch && \
     
 # Apply Android DNS stub
 RUN sed -i '1s/^/#ifdef __ANDROID__\n/' ext/standard/dns.c && \
-    sed -i '2i\typedef void* dns_handle_t;' ext/standard/dns.c && \
-    sed -i '3i\static inline dns_handle_t dns_open(const char *nameserver) { return NULL; }' ext/standard/dns.c && \
-    sed -i '4i\static inline void dns_free(dns_handle_t handle) {}' ext/standard/dns.c && \
-    sed -i '5i\static inline int dns_search(dns_handle_t handle, const char *dname, int class, int type,' ext/standard/dns.c && \
-    sed -i '6i\    unsigned char *answer, int anslen, struct sockaddr *from, socklen_t *fromsize) {' ext/standard/dns.c && \
-    sed -i '7i\    return -1;' ext/standard/dns.c && \
-    sed -i '8i\}' ext/standard/dns.c && \
-    sed -i '9i\/* Disable the rest of the DNS implementation on Android */' ext/standard/dns.c && \
-    sed -i '10i\#define ANDROID_DNS_STUB' ext/standard/dns.c && \
-    sed -i '11i\#endif' ext/standard/dns.c && \
-    sed -i '12i\#ifndef ANDROID_DNS_STUB' ext/standard/dns.c && \
+    sed -i '2i\#include <sys/socket.h>' ext/standard/dns.c && \
+    sed -i '3i\#include <netinet/in.h>' ext/standard/dns.c && \
+    sed -i '4i\#include <sys/types.h>' ext/standard/dns.c && \
+    sed -i '5i\t' ext/standard/dns.c && \
+    sed -i '6i\ttypedef void* dns_handle_t;' ext/standard/dns.c && \
+    sed -i '7i\tstatic inline dns_handle_t dns_open(const char *nameserver) { return NULL; }' ext/standard/dns.c && \
+    sed -i '8i\tstatic inline void dns_free(dns_handle_t handle) {}' ext/standard/dns.c && \
+    sed -i '9i\tstatic inline int dns_search(dns_handle_t handle, const char *dname, int class, int type,' ext/standard/dns.c && \
+    sed -i '10i\t    unsigned char *answer, int anslen, struct sockaddr *from, socklen_t *fromsize) {' ext/standard/dns.c && \
+    sed -i '11i\t    return -1;' ext/standard/dns.c && \
+    sed -i '12i\t}' ext/standard/dns.c && \
+    sed -i '13i\t/* Disable the rest of the DNS implementation on Android */' ext/standard/dns.c && \
+    sed -i '14i\t#define ANDROID_DNS_STUB' ext/standard/dns.c && \
+    sed -i '15i\t#endif' ext/standard/dns.c && \
+    sed -i '16i\t#ifndef ANDROID_DNS_STUB' ext/standard/dns.c && \
     sed -i '$a\#endif' ext/standard/dns.c
 
 # Prepare build directories
