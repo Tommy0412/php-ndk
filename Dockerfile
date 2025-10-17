@@ -110,24 +110,19 @@ RUN patch -p1 < ../resolv.patch && \
     patch -p1 < ../main-streams-cast.c.patch
     
 # Apply Android DNS stub
-RUN { \
-    echo '#ifdef __ANDROID__'; \
-    echo 'typedef void* dns_handle_t;'; \
-    echo 'static inline dns_handle_t dns_open(const char *nameserver) { return NULL; }'; \
-    echo 'static inline void dns_free(dns_handle_t handle) {}'; \
-    echo 'static inline int dns_search(dns_handle_t handle, const char *dname, int class, int type,'; \
-    echo '    unsigned char *answer, int anslen, struct sockaddr *from, socklen_t *fromsize) {'; \
-    echo '    return -1;'; \
-    echo '}'; \
-    echo ''; \
-    echo '/* Disable the rest of the DNS implementation on Android */'; \
-    echo '#define ANDROID_DNS_STUB'; \
-    echo '#endif'; \
-    echo ''; \
-    echo '#ifndef ANDROID_DNS_STUB'; \
-    cat ext/standard/dns.c; \
-    echo '#endif'; \
-} > ext/standard/dns.c.tmp && mv ext/standard/dns.c.tmp ext/standard/dns.c
+RUN sed -i '1s/^/#ifdef __ANDROID__\n/' ext/standard/dns.c && \
+    sed -i '2i\typedef void* dns_handle_t;' ext/standard/dns.c && \
+    sed -i '3i\static inline dns_handle_t dns_open(const char *nameserver) { return NULL; }' ext/standard/dns.c && \
+    sed -i '4i\static inline void dns_free(dns_handle_t handle) {}' ext/standard/dns.c && \
+    sed -i '5i\static inline int dns_search(dns_handle_t handle, const char *dname, int class, int type,' ext/standard/dns.c && \
+    sed -i '6i\    unsigned char *answer, int anslen, struct sockaddr *from, socklen_t *fromsize) {' ext/standard/dns.c && \
+    sed -i '7i\    return -1;' ext/standard/dns.c && \
+    sed -i '8i\}' ext/standard/dns.c && \
+    sed -i '9i\/* Disable the rest of the DNS implementation on Android */' ext/standard/dns.c && \
+    sed -i '10i\#define ANDROID_DNS_STUB' ext/standard/dns.c && \
+    sed -i '11i\#endif' ext/standard/dns.c && \
+    sed -i '12i\#ifndef ANDROID_DNS_STUB' ext/standard/dns.c && \
+    sed -i '$a\#endif' ext/standard/dns.c
 
 # Prepare build directories
 WORKDIR /root
