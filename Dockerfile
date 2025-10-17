@@ -18,7 +18,7 @@ ENV PATH="${PATH}:${NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64/bin"
 # Prepare build environment
 WORKDIR /root
 ARG TARGET=aarch64-linux-android
-ARG API=21
+ARG API=32
 ARG PHP_VERSION=8.4.2
 ENV SQLITE3_VERSION=3470200
 
