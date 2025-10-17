@@ -105,11 +105,30 @@ RUN wget https://www.php.net/distributions/php-${PHP_VERSION}.tar.gz && \
 COPY *.patch /root/
 WORKDIR /root/php-${PHP_VERSION}
 
-RUN patch -p1 < ../ext-standard-dns-android-final.patch && \
-    patch -p1 < ../resolv.patch && \
+RUN patch -p1 < ../resolv.patch && \
     patch -p1 < ../ext-standard-php_fopen_wrapper.c.patch && \
     patch -p1 < ../main-streams-cast.c.patch
     
+# Apply Android DNS stub
+RUN { \
+    echo '#ifdef __ANDROID__'; \
+    echo 'typedef void* dns_handle_t;'; \
+    echo 'static inline dns_handle_t dns_open(const char *nameserver) { return NULL; }'; \
+    echo 'static inline void dns_free(dns_handle_t handle) {}'; \
+    echo 'static inline int dns_search(dns_handle_t handle, const char *dname, int class, int type,'; \
+    echo '    unsigned char *answer, int anslen, struct sockaddr *from, socklen_t *fromsize) {'; \
+    echo '    return -1;'; \
+    echo '}'; \
+    echo ''; \
+    echo '/* Disable the rest of the DNS implementation on Android */'; \
+    echo '#define ANDROID_DNS_STUB'; \
+    echo '#endif'; \
+    echo ''; \
+    echo '#ifndef ANDROID_DNS_STUB'; \
+    cat ext/standard/dns.c; \
+    echo '#endif'; \
+} > ext/standard/dns.c.tmp && mv ext/standard/dns.c.tmp ext/standard/dns.c
+
 # Prepare build directories
 WORKDIR /root
 RUN mkdir build install
