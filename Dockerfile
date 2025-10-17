@@ -135,7 +135,7 @@ RUN { \
 } > ext/standard/dns.c.new && mv ext/standard/dns.c.new ext/standard/dns.c
 
 # Patch proc_open.c for Android
-RUN sed -i 's/posix_spawn_file_actions_addchdir_np(&factions, cwd)/-1 \/\/ Android compatibility/g' ext/standard/proc_open.c
+RUN sed -i 's/r = posix_spawn_file_actions_addchdir_np(&factions, cwd);/r = -1; \/\/ Android compatibility/' ext/standard/proc_open.c
 
 # Prepare build directories
 WORKDIR /root
