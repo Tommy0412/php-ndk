@@ -171,6 +171,14 @@ RUN PKG_CONFIG_PATH="/root/onig-install/lib/pkgconfig:/root/openssl-install/lib/
     --disable-phar \
     --disable-phpdbg \
     --disable-opcache-jit \
+    --disable-opcache-file-cache \
+    --disable-pcntl \
+    --disable-shmop \
+    --disable-sysvshm \
+    --disable-sysvsem \
+    --disable-sysvmsg \
+    --disable-opcache \
+    --disable-fiber-asm \
     CC=${CC} \
     CXX=${CXX} \
     SQLITE_CFLAGS="-I/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
@@ -202,7 +210,7 @@ RUN cp /root/php-android-output/lib/libphp.so /root/install/
 RUN cp /root/sqlite-amalgamation-${SQLITE3_VERSION}/libsqlite3.so /root/install/
 RUN cp /root/openssl-install/lib/libssl.so.1.1 /root/install/
 RUN cp /root/openssl-install/lib/libcrypto.so.1.1 /root/install/
-RUN cp /root/curl-install/lib/libcurl.so.4 /root/install/
+RUN cp /root/curl-install/lib/libcurl.so /root/install/
 
 # --- FINAL STAGE ---
 FROM alpine:3.21
