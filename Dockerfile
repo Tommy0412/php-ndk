@@ -100,18 +100,16 @@ RUN ./configure \
 WORKDIR /root
 RUN wget https://www.php.net/distributions/php-${PHP_VERSION}.tar.gz && \
     tar -xvf php-${PHP_VERSION}.tar.gz
-
-# Copy patches from repo into container
-COPY *.patch /root/patches/
-
-# Apply all patches
+    
+# Apply patches
+COPY *.patch /root/
 WORKDIR /root/php-${PHP_VERSION}
-RUN echo "Patches in /root/patches:" && ls -l /root/patches && \
-    for patch in /root/patches/*.patch; do \
-        echo "Applying $patch"; \
-        patch -p1 < "$patch"; \
-    done
-
+RUN patch -p1 < ../ext-standard-dns.c.patch && \
+    patch -p1 < ../resolv.patch && \
+    patch -p1 < ../ext-standard-php_fopen_wrapper.c.patch && \
+    patch -p1 < ../main-streams-cast.c.patch && \
+    patch -p1 < ../fork.patch
+    
 # Prepare build directories
 WORKDIR /root
 RUN mkdir build install
@@ -164,9 +162,6 @@ RUN for hdr in resolv_params.h resolv_private.h resolv_static.h resolv_stats.h; 
       curl https://android.googlesource.com/platform/bionic/+/refs/heads/android12--mainline-release/libc/dns/include/$hdr?format=TEXT | base64 -d > $hdr; \
     done
     
-# Disable broken DNS sources for Android
-RUN rm -f /root/php-${PHP_VERSION}/ext/standard/dns.c /root/php-${PHP_VERSION}/ext/standard/php_dns.h
-
 # Build and install PHP with embed SAPI
 RUN make -j7 && make install
 
