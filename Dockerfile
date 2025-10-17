@@ -45,7 +45,9 @@ RUN ANDROID_NDK_HOME="/opt/android-ndk-r27c" ./Configure android-arm64 \
     no-asm \
     no-comp \
     no-hw \
-    no-engine && \
+    no-engine \
+    -Wl,-soname,libssl.so \
+    -Wl,-soname,libcrypto.so && \
     make -j4 && \
     make install_sw
 
