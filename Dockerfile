@@ -170,6 +170,7 @@ RUN PKG_CONFIG_PATH="/root/onig-install/lib/pkgconfig:/root/openssl-install/lib/
     --without-libxml \
     --disable-phar \
     --disable-phpdbg \
+    --disable-opcache \
     --disable-opcache-jit \
     --disable-opcache-file-cache \
     --disable-pcntl \
@@ -177,9 +178,6 @@ RUN PKG_CONFIG_PATH="/root/onig-install/lib/pkgconfig:/root/openssl-install/lib/
     --disable-sysvshm \
     --disable-sysvsem \
     --disable-sysvmsg \
-    --disable-opcache \
-    --disable-fiber-asm \
-    --disable-fibers \
     CC=${CC} \
     CXX=${CXX} \
     SQLITE_CFLAGS="-I/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
