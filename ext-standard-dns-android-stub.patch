@@ -1,55 +1,31 @@
+diff --git a/ext/standard/dns.c b/ext/standard/dns.c
+index 7f4b93a..a9e45b4 100644
 --- a/ext/standard/dns.c
 +++ b/ext/standard/dns.c
-@@ -1,6 +1,17 @@
+@@ -32,6 +32,20 @@
+ # include "php_network.h"
+ #endif
+
 +#ifdef __ANDROID__
 +typedef void* dns_handle_t;
-+
-+static inline dns_handle_t dns_open(const char *nameserver) {
-+    (void)nameserver;
-+    return NULL;
-+}
-+
-+static inline void dns_free(dns_handle_t handle) {
-+    (void)handle;
-+}
-+
-+static inline int dns_search(dns_handle_t handle, const char *dname, int class, int type, unsigned char *answer, int anslen) {
-+    (void)handle; (void)dname; (void)class; (void)type; (void)answer; (void)anslen;
++static inline dns_handle_t dns_open(const char *nameserver) { return NULL; }
++static inline void dns_free(dns_handle_t handle) {}
++static inline int dns_search(dns_handle_t handle, const char *dname, int class, int type,
++    unsigned char *answer, int anslen, struct sockaddr *from, socklen_t *fromsize) {
 +    return -1;
 +}
++
++/* Disable the rest of the DNS implementation on Android */
++#define ANDROID_DNS_STUB
 +#endif
 +
- #ifndef MAXHOSTNAMELEN
- #define MAXHOSTNAMELEN 255
- #endif
-@@ -57,6 +68,10 @@
- #endif
- #endif
-+
-+#ifdef __ANDROID__
-+int __dn_skipname(const unsigned char *, const unsigned char *);
-+#endif
-@@ -938,7 +953,7 @@
- 			while (qd-- > 0) {
--				n = dn_skipname(cp, end);
-+				n = __dn_skipname(cp, end);
- 				if (n < 0) {
- 					php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to parse DNS data received");
- 					zval_dtor(return_value);
-@@ -1049,14 +1064,14 @@
- 	cp = (u_char *)&ans + HFIXEDSZ;
- 	end = (u_char *)&ans +i;
- 	for (qdc = ntohs((unsigned short)hp->qdcount); qdc--; cp += i + QFIXEDSZ) {
--		if ((i = dn_skipname(cp, end)) < 0 ) {
-+		if ((i = __dn_skipname(cp, end)) < 0 ) {
- 			php_dns_free_handle(handle);
- 			RETURN_FALSE;
- 		}
++#ifndef ANDROID_DNS_STUB
+ static dns_handle_t php_dns_open(const char *nameserver);
+ static void php_dns_free_handle(dns_handle_t handle);
+ static int php_dns_search(dns_handle_t handle, const char *dname, int class, int type,
+@@ -1130,3 +1144,5 @@ PHP_FUNCTION(dns_get_record)
  	}
- 	count = ntohs((unsigned short)hp->ancount);
- 	while (--count >= 0 && cp < end) {
--		if ((i = dn_skipname(cp, end)) < 0 ) {
-+		if ((i = __dn_skipname(cp, end)) < 0 ) {
- 			php_dns_free_handle(handle);
- 			RETURN_FALSE;
- 		}
+ }
+ #endif
++
++#endif /* !ANDROID_DNS_STUB */
