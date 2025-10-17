@@ -100,12 +100,18 @@ RUN ./configure \
 WORKDIR /root
 RUN wget https://www.php.net/distributions/php-${PHP_VERSION}.tar.gz && \
     tar -xvf php-${PHP_VERSION}.tar.gz
+
+RUN echo '#ifdef __ANDROID__\n\
+typedef void* dns_handle_t;\n\
+static inline dns_handle_t dns_open(const char *nameserver) { return NULL; }\n\
+static inline void dns_free(dns_handle_t handle) {}\n\
+static inline int dns_search(dns_handle_t handle, const char *dname, int class, int type, unsigned char *answer, int anslen) { return -1; }\n\
+#endif' >> ext/standard/dns.c
     
 # Apply patches
 COPY *.patch /root/
 WORKDIR /root/php-${PHP_VERSION}
-RUN patch -p1 < ../ext-standard-dns-android-stub.patch && \
-    patch -p1 < ../ext-standard-dns.c.patch && \
+RUN patch -p1 < ../ext-standard-dns.c.patch && \
     patch -p1 < ../resolv.patch && \
     patch -p1 < ../ext-standard-php_fopen_wrapper.c.patch && \
     patch -p1 < ../main-streams-cast.c.patch
