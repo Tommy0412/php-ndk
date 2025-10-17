@@ -33,12 +33,9 @@ ENV SYSROOT=${TOOLCHAIN}/sysroot
 
 # Build OpenSSL for Android - FINAL WORKING VERSION
 WORKDIR /root
-RUN wget https://www.openssl.org/source/openssl-3.1.2.tar.gz && \
-    tar -xzf openssl-3.1.2.tar.gz
-WORKDIR /root/openssl-3.1.2
-# RUN wget https://www.openssl.org/source/openssl-1.1.1w.tar.gz && \
-#  tar -xzf openssl-1.1.1w.tar.gz
-# WORKDIR /root/openssl-1.1.1w
+ RUN wget https://www.openssl.org/source/openssl-1.1.1w.tar.gz && \
+ tar -xzf openssl-1.1.1w.tar.gz
+ WORKDIR /root/openssl-1.1.1w
 
 RUN ANDROID_NDK_HOME="/opt/android-ndk-r27c" ./Configure android-arm64 \
     -D__ANDROID_API__=21 \
