@@ -98,6 +98,29 @@ RUN ./configure \
     make -j$(nproc) && \
     make install
 
+# -----------------------------
+# 1️⃣ Build libzip for Android
+# -----------------------------
+WORKDIR /root
+ENV LIBZIP_VERSION=1.11.4
+RUN curl -LO https://libzip.org/download/libzip-${LIBZIP_VERSION}.tar.gz \
+    && tar xzf libzip-${LIBZIP_VERSION}.tar.gz \
+    && rm libzip-${LIBZIP_VERSION}.tar.gz
+
+WORKDIR /root/libzip-${LIBZIP_VERSION}
+RUN mkdir build && cd build \
+    && cmake .. \
+        -DCMAKE_TOOLCHAIN_FILE=/opt/android-ndk-r27c/build/cmake/android.toolchain.cmake \
+        -DANDROID_ABI=arm64-v8a \
+        -DANDROID_PLATFORM=android-32 \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX=/root/libzip-install \
+        -DBUILD_SHARED_LIBS=OFF \
+        -DENABLE_TESTS=OFF \
+        -DENABLE_EXAMPLES=OFF \
+    && make -j7 \
+    && make install
+
 # Download PHP source
 WORKDIR /root
 RUN wget https://www.php.net/distributions/php-${PHP_VERSION}.tar.gz && \
@@ -110,7 +133,16 @@ WORKDIR /root/php-${PHP_VERSION}
 # Create gethostname stub for Android
 RUN echo '#ifdef __ANDROID__' > /root/php-${PHP_VERSION}/ext/standard/gethostname_stub.c && \
     echo '#include "php.h"' >> /root/php-${PHP_VERSION}/ext/standard/gethostname_stub.c && \
-    echo 'PHP_FUNCTION(gethostname) { RETURN_FALSE; }' >> /root/php-${PHP_VERSION}/ext/standard/gethostname_stub.c && \
+    echo '#include <sys/system_properties.h>' >> /root/php-${PHP_VERSION}/ext/standard/gethostname_stub.c && \
+    echo '#include <string.h>' >> /root/php-${PHP_VERSION}/ext/standard/gethostname_stub.c && \
+    echo 'PHP_FUNCTION(gethostname) {' >> /root/php-${PHP_VERSION}/ext/standard/gethostname_stub.c && \
+    echo '    char hostname[PROP_VALUE_MAX];' >> /root/php-${PHP_VERSION}/ext/standard/gethostname_stub.c && \
+    echo '    __system_property_get("net.hostname", hostname);' >> /root/php-${PHP_VERSION}/ext/standard/gethostname_stub.c && \
+    echo '    if (strlen(hostname) == 0) {' >> /root/php-${PHP_VERSION}/ext/standard/gethostname_stub.c && \
+    echo '        RETURN_FALSE;' >> /root/php-${PHP_VERSION}/ext/standard/gethostname_stub.c && \
+    echo '    }' >> /root/php-${PHP_VERSION}/ext/standard/gethostname_stub.c && \
+    echo '    RETURN_STRING(hostname);' >> /root/php-${PHP_VERSION}/ext/standard/gethostname_stub.c && \
+    echo '}' >> /root/php-${PHP_VERSION}/ext/standard/gethostname_stub.c && \
     echo '#endif' >> /root/php-${PHP_VERSION}/ext/standard/gethostname_stub.c
 
 # Android POSIX fixes
@@ -151,6 +183,7 @@ RUN sed -i 's/r = posix_spawn_file_actions_addchdir_np(&factions, cwd);/r = -1; 
 # syslog patch
 RUN sed -i 's/#define syslog std_syslog/#ifdef __ANDROID__\n#define syslog(...)\n#else\n#define syslog std_syslog\n#endif/' main/php_syslog.c
 
+# Add the custom file to the build process
 RUN printf "gethostname_stub.lo\n" >> /root/php-${PHP_VERSION}/ext/standard/Makefile.frag
 
 # Prepare build directories
@@ -158,13 +191,16 @@ WORKDIR /root
 RUN mkdir -p build install
 WORKDIR /root/build
 
-RUN PKG_CONFIG_PATH="/root/onig-install/lib/pkgconfig:/root/openssl-install/lib/pkgconfig:/root/curl-install/lib/pkgconfig" \
+# RUN PKG_CONFIG_PATH="/root/onig-install/lib/pkgconfig:/root/openssl-install/lib/pkgconfig:/root/curl-install/lib/pkgconfig" \
+RUN PKG_CONFIG_PATH="/root/libzip-install/lib/pkgconfig:/root/onig-install/lib/pkgconfig:/root/openssl-install/lib/pkgconfig:/root/curl-install/lib/pkgconfig" \
   OPENSSL_CFLAGS="-I/root/openssl-install/include" \
   OPENSSL_LIBS="/root/openssl-install/lib/libssl.a /root/openssl-install/lib/libcrypto.a" \
   CURL_CFLAGS="-I/root/curl-install/include" \
   CURL_LIBS="-L/root/curl-install/lib -lcurl" \
   ONIG_CFLAGS="-I/root/onig-install/include" \
   ONIG_LIBS="-L/root/onig-install/lib -lonig" \
+  LIBZIP_CFLAGS="-I/root/libzip-install/include" \
+  LIBZIP_LIBS="-L/root/libzip-install/lib -lzip" \
   ../php-${PHP_VERSION}/configure \
     --host=${TARGET} \
     --prefix=/root/php-android-output \
@@ -214,6 +250,7 @@ RUN PKG_CONFIG_PATH="/root/onig-install/lib/pkgconfig:/root/openssl-install/lib/
          -L/root/sqlite-amalgamation-${SQLITE3_VERSION} \
          -L/root/curl-install/lib \
          -L/root/onig-install/lib \
+         -L/root/libzip-install/lib \
          -L${SYSROOT}/usr/lib/${TARGET}/${API} \
          -lc -ldl"
 
