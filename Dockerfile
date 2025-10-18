@@ -107,6 +107,7 @@ RUN wget https://www.php.net/distributions/php-${PHP_VERSION}.tar.gz && \
 COPY *.patch /root/
 WORKDIR /root/php-${PHP_VERSION}
 
+# Disable gethostname function for Android
 RUN sed -i 's/PHP_FE(gethostname, arginfo_gethostname)/\/\/ PHP_FE(gethostname, arginfo_gethostname)/' /root/php-${PHP_VERSION}/ext/standard/basic_functions.c
 
 # Android POSIX fixes
