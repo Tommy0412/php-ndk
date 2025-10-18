@@ -184,7 +184,8 @@ RUN sed -i 's/r = posix_spawn_file_actions_addchdir_np(&factions, cwd);/r = -1; 
 RUN sed -i 's/#define syslog std_syslog/#ifdef __ANDROID__\n#define syslog(...)\n#else\n#define syslog std_syslog\n#endif/' main/php_syslog.c
 
 # Add the custom file to the build process
-RUN printf "gethostname_stub.lo\n" >> /root/php-${PHP_VERSION}/ext/standard/Makefile.frag
+# RUN printf "gethostname_stub.lo\n" >> /root/php-${PHP_VERSION}/ext/standard/Makefile.frag
+RUN echo "gethostname_stub.lo" >> /root/php-${PHP_VERSION}/ext/standard/Makefile.frag
 
 # Prepare build directories
 WORKDIR /root
