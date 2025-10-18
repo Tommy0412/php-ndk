@@ -42,7 +42,7 @@ RUN ANDROID_NDK_HOME="/opt/android-ndk-r27c" \
     -D__ANDROID_API__=21 \
     -DOPENSSL_NO_EGD \
     --prefix=/root/openssl-install \
-    shared \
+    no-shared \
     no-asm \
     no-comp \
     no-hw \
@@ -180,7 +180,7 @@ WORKDIR /root/build
 
 RUN PKG_CONFIG_PATH="/root/onig-install/lib/pkgconfig:/root/openssl-install/lib/pkgconfig:/root/curl-install/lib/pkgconfig" \
   OPENSSL_CFLAGS="-I/root/openssl-install/include" \
-  OPENSSL_LIBS="-L/root/openssl-install/lib -lssl -lcrypto" \
+  OPENSSL_LIBS="/root/openssl-install/lib/libssl.a /root/openssl-install/lib/libcrypto.a" \
   CURL_CFLAGS="-I/root/curl-install/include" \
   CURL_LIBS="-L/root/curl-install/lib -lcurl" \
   ONIG_CFLAGS="-I/root/onig-install/include" \
@@ -247,8 +247,8 @@ RUN cp /root/onig-install/lib/libonig.so /root/install/
 RUN cp /root/php-android-output/lib/libphp.so /root/install/
 RUN cp /root/sqlite-amalgamation-${SQLITE3_VERSION}/libsqlite3.so /root/install/
 RUN cp /root/curl-install/lib/libcurl.so /root/install/
-RUN cp /root/openssl-install/lib/libssl.so.1.1 /root/install/
-RUN cp /root/openssl-install/lib/libcrypto.so.1.1 /root/install/
+# RUN cp /root/openssl-install/lib/libssl.so.1.1 /root/install/
+# RUN cp /root/openssl-install/lib/libcrypto.so.1.1 /root/install/
 
 RUN readelf -d /root/install/libphp.so | grep NEEDED
 
