@@ -46,23 +46,8 @@ RUN ANDROID_NDK_HOME="/opt/android-ndk-r27c" ./Configure android-arm64 \
     no-comp \
     no-hw \
     no-engine \
-    -Wl,-soname,libssl.so \
-    -Wl,-soname,libcrypto.so && \
     make -j4 && \
     make install_sw
-
-# Ensure install directory exists
-RUN mkdir -p /root/install
-
-# Go to OpenSSL lib folder
-WORKDIR /root/openssl-install/lib
-
-# If versioned libs exist but unversioned ones don't, create unversioned
-RUN [ ! -f libssl.so ] && [ -f libssl.so.1.1 ] && cp libssl.so.1.1 libssl.so || true
-RUN [ ! -f libcrypto.so ] && [ -f libcrypto.so.1.1 ] && cp libcrypto.so.1.1 libcrypto.so || true
-
-# Copy everything to /root/install for later use
-RUN cp -v libssl.so* /root/install/ && cp -v libcrypto.so* /root/install/
 
 # Build cURL for Android
 WORKDIR /root
@@ -159,6 +144,10 @@ RUN sed -i 's/r = posix_spawn_file_actions_addchdir_np(&factions, cwd);/r = -1; 
 # syslog patch
 RUN sed -i 's/#define syslog std_syslog/#ifdef __ANDROID__\n#define syslog(...)\n#else\n#define syslog std_syslog\n#endif/' main/php_syslog.c
 
+cd /root/openssl-install/lib
+ln -sf libssl.so.1.1 libssl.so
+ln -sf libcrypto.so.1.1 libcrypto.so
+
 # Prepare build directories
 WORKDIR /root
 RUN mkdir -p build install
@@ -172,7 +161,7 @@ RUN PKG_CONFIG_PATH="/root/onig-install/lib/pkgconfig:/root/openssl-install/lib/
   ONIG_CFLAGS="-I/root/onig-install/include" \
   ONIG_LIBS="-L/root/onig-install/lib -lonig" \
   ../php-${PHP_VERSION}/configure \
-    --host=${TARGET}${API} \
+    --host=${TARGET} \
     --prefix=/root/php-android-output \
     --enable-embed=shared \
     --enable-posix \
@@ -233,6 +222,8 @@ RUN cp /root/onig-install/lib/libonig.so /root/install/
 RUN cp /root/php-android-output/lib/libphp.so /root/install/
 RUN cp /root/sqlite-amalgamation-${SQLITE3_VERSION}/libsqlite3.so /root/install/
 RUN cp /root/curl-install/lib/libcurl.so /root/install/
+RUN cp /root/openssl-install/lib/libssl.so.1.1 /root/install/
+RUN cp /root/openssl-install/lib/libcrypto.so.1.1 /root/install/
 
 # --- FINAL STAGE ---
 FROM alpine:3.21
