@@ -199,11 +199,16 @@ RUN PKG_CONFIG_PATH="/root/onig-install/lib/pkgconfig:/root/openssl-install/lib/
         -I/root/curl-install/include \
         -I/root/onig-install/include" \
     LDFLAGS="-pie -shared \
-             -L/root/sqlite-amalgamation-${SQLITE3_VERSION} \
-             -L/root/curl-install/lib \
-             -L/root/onig-install/lib \
-             -L${SYSROOT}/usr/lib/${TARGET}/${API} \
-             -lc -ldl"
+         -Wl,--whole-archive \
+         /root/openssl-install/lib/libssl.a \
+         /root/openssl-install/lib/libcrypto.a \
+         -Wl,--no-whole-archive \
+         -L/root/sqlite-amalgamation-${SQLITE3_VERSION} \
+         -L/root/curl-install/lib \
+         -L/root/onig-install/lib \
+         -L${SYSROOT}/usr/lib/${TARGET}/${API} \
+         -lc -ldl"
+
 
 # Download missing Android DNS headers
 RUN for hdr in resolv_params.h resolv_private.h resolv_static.h resolv_stats.h; do \
