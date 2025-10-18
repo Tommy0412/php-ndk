@@ -64,7 +64,6 @@ RUN [ ! -f libcrypto.so ] && [ -f libcrypto.so.1.1 ] && cp libcrypto.so.1.1 libc
 # Copy everything to /root/install for later use
 RUN cp -v libssl.so* /root/install/ && cp -v libcrypto.so* /root/install/
 
-
 # Build cURL for Android
 WORKDIR /root
 RUN wget https://curl.se/download/curl-8.13.0.tar.gz && \
@@ -162,7 +161,7 @@ RUN sed -i 's/#define syslog std_syslog/#ifdef __ANDROID__\n#define syslog(...)\
 
 # Prepare build directories
 WORKDIR /root
-RUN mkdir build install
+RUN mkdir -p build install
 WORKDIR /root/build
 
 RUN PKG_CONFIG_PATH="/root/onig-install/lib/pkgconfig:/root/openssl-install/lib/pkgconfig:/root/curl-install/lib/pkgconfig" \
