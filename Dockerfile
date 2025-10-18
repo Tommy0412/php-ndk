@@ -49,32 +49,33 @@ RUN ANDROID_NDK_HOME="/opt/android-ndk-r27c" ./Configure android-arm64 \
     make -j4 && \
     make install_sw
 
-# --- After make install_sw for openssl ---
+# --- After make install_sw for OpenSSL ---
 WORKDIR /root/openssl-install/lib
 
-# Ensure versioned files exist and are real files (not symlink loops)
-# If build produced only libssl.so and libcrypto.so (or only versioned names),
-# make sure both the versioned and unversioned names are present as real files
-# so the Android loader can find what libphp expects.
-# Prefer creating/copying the actual versioned names the linker will look for.
-
-# If libssl.so.1.1 exists, copy a real file to libssl.so.1.1 (no-op if same)
-if [ -f libssl.so.1.1 ]; then cp -f libssl.so.1.1 libssl.so.1.1; fi
-# If only libssl.so exists but no libssl.so.1.1, copy to the versioned name:
-if [ -f libssl.so ] && [ ! -f libssl.so.1.1 ]; then cp -f libssl.so libssl.so.1.1; fi
-
-if [ -f libcrypto.so.1.1 ]; then cp -f libcrypto.so.1.1 libcrypto.so.1.1; fi
-if [ -f libcrypto.so ] && [ ! -f libcrypto.so.1.1 ]; then cp -f libcrypto.so libcrypto.so.1.1; fi
-
-# Now copy the exact files you will bundle inside the APK to /root/install
-# Copy ONLY the versioned shared libraries that the Android loader expects
-# and the libphp.so you built
-mkdir -p /root/install
-cp -f libssl.so.1.1 /root/install/
-cp -f libcrypto.so.1.1 /root/install/
-# optionally, if you want the unversioned names too (not required), copy them:
-cp -f libssl.so /root/install/ || true
-cp -f libcrypto.so /root/install/ || true
+RUN set -eux; \
+    # Ensure correct versioned .so names exist
+    if [ -f libssl.so.1.1 ]; then \
+        echo "libssl.so.1.1 already exists"; \
+    elif [ -f libssl.so ]; then \
+        echo "Copying libssl.so -> libssl.so.1.1"; \
+        cp -f libssl.so libssl.so.1.1; \
+    fi; \
+    \
+    if [ -f libcrypto.so.1.1 ]; then \
+        echo "libcrypto.so.1.1 already exists"; \
+    elif [ -f libcrypto.so ]; then \
+        echo "Copying libcrypto.so -> libcrypto.so.1.1"; \
+        cp -f libcrypto.so libcrypto.so.1.1; \
+    fi; \
+    \
+    # Copy the required libs into /root/install
+    mkdir -p /root/install; \
+    cp -f libssl.so.1.1 /root/install/; \
+    cp -f libcrypto.so.1.1 /root/install/; \
+    \
+    # Optionally copy unversioned names too
+    cp -f libssl.so /root/install/ 2>/dev/null || true; \
+    cp -f libcrypto.so /root/install/ 2>/dev/null || true
 
 # Build cURL for Android
 WORKDIR /root
