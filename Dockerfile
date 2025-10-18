@@ -107,14 +107,7 @@ RUN wget https://www.php.net/distributions/php-${PHP_VERSION}.tar.gz && \
 COPY *.patch /root/
 WORKDIR /root/php-${PHP_VERSION}
 
-# Apply Android gethostname stub
-RUN sed -i '1i#ifdef __ANDROID__\n#define HAVE_GETHOSTNAME\n#endif' /root/php-${PHP_VERSION}/ext/standard/basic_functions.c
-
-RUN echo '\
-#ifdef __ANDROID__\n\
-void zif_gethostname(INTERNAL_FUNCTION_PARAMETERS) { RETURN_FALSE; }\n\
-#endif\n\
-' >> /root/php-${PHP_VERSION}/ext/standard/basic_functions.c
+RUN sed -i 's/PHP_FE(gethostname, arginfo_gethostname)/\/\/ PHP_FE(gethostname, arginfo_gethostname)/' /root/php-${PHP_VERSION}/ext/standard/basic_functions.c
 
 # Android POSIX fixes
 RUN sed -i '1i#ifdef __ANDROID__\n#define eaccess(path, mode) access(path, mode)\n#endif' /root/php-8.4.2/ext/posix/posix.c
