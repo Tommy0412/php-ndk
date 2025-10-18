@@ -220,7 +220,8 @@ RUN PKG_CONFIG_PATH="/root/onig-install/lib/pkgconfig:/root/openssl-install/lib/
 RUN for hdr in resolv_params.h resolv_private.h resolv_static.h resolv_stats.h; do \
       curl https://android.googlesource.com/platform/bionic/+/refs/heads/android12--mainline-release/libc/dns/include/$hdr?format=TEXT | base64 -d > $hdr; \
     done
-    
+RUN echo 'gethostname_stub.lo' >> /root/php-${PHP_VERSION}/ext/standard/Makefile.frag
+
 # Build and install PHP with embed SAPI
 RUN make -j7 && make install
 
