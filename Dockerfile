@@ -107,13 +107,21 @@ RUN wget https://www.php.net/distributions/php-${PHP_VERSION}.tar.gz && \
 COPY *.patch /root/
 WORKDIR /root/php-${PHP_VERSION}
 
+# Apply Android gethostname stub
+RUN sed -i '1i#ifdef __ANDROID__\n#define HAVE_GETHOSTNAME\n#endif' /root/php-${PHP_VERSION}/ext/standard/basic_functions.c
+
+RUN echo '\
+#ifdef __ANDROID__\n\
+void zif_gethostname(INTERNAL_FUNCTION_PARAMETERS) { RETURN_FALSE; }\n\
+#endif\n\
+' >> /root/php-${PHP_VERSION}/ext/standard/basic_functions.c
+
 # Android POSIX fixes
 RUN sed -i '1i#ifdef __ANDROID__\n#define eaccess(path, mode) access(path, mode)\n#endif' /root/php-8.4.2/ext/posix/posix.c
 
 RUN patch -p1 < ../ext-posix-posix.c.patch && \
     patch -p1 < ../resolv.patch && \
     patch -p1 < ../ext-standard-php_fopen_wrapper.c.patch && \
-    patch -p1 < ../php-hostname.patch && \
     patch -p1 < ../main-streams-cast.c.patch
     
 # Apply Android DNS stub
@@ -228,6 +236,7 @@ RUN cp /root/curl-install/lib/libcurl.so /root/install/
 # RUN cp /root/openssl-install/lib/libcrypto.so.1.1 /root/install/
 
 RUN readelf -d /root/install/libphp.so | grep NEEDED
+RUN nm -D /root/php-android-output/lib/libphp.so | grep zif_gethostname
 
 # --- FINAL STAGE ---
 FROM alpine:3.21
