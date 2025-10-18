@@ -34,5 +34,5 @@
 -        php_error_docref(NULL, E_WARNING, "gethostname() failed");
 -        RETURN_FALSE;
 -    }
-+    RETURN_STRING("localhosta");
++    RETURN_STRING("localhost");
  }
