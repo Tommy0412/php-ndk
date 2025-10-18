@@ -51,14 +51,19 @@ RUN ANDROID_NDK_HOME="/opt/android-ndk-r27c" ./Configure android-arm64 \
     make -j4 && \
     make install_sw
 
-# After "make install_sw"
-RUN cd /root/openssl-install/lib && \
-    # If libssl.so does not exist, create it from libssl.so.1.1
-    if [ ! -f libssl.so ] && [ -f libssl.so.1.1 ]; then cp libssl.so.1.1 libssl.so; fi && \
-    if [ ! -f libcrypto.so ] && [ -f libcrypto.so.1.1 ]; then cp libcrypto.so.1.1 libcrypto.so; fi && \
-    # Now also copy both names to /root/install/
-    cp -f libssl.so* /root/install/ && \
-    cp -f libcrypto.so* /root/install/
+# Ensure install directory exists
+RUN mkdir -p /root/install
+
+# Go to OpenSSL lib folder
+WORKDIR /root/openssl-install/lib
+
+# If versioned libs exist but unversioned ones don't, create unversioned
+RUN [ ! -f libssl.so ] && [ -f libssl.so.1.1 ] && cp libssl.so.1.1 libssl.so || true
+RUN [ ! -f libcrypto.so ] && [ -f libcrypto.so.1.1 ] && cp libcrypto.so.1.1 libcrypto.so || true
+
+# Copy everything to /root/install for later use
+RUN cp -v libssl.so* /root/install/ && cp -v libcrypto.so* /root/install/
+
 
 # Build cURL for Android
 WORKDIR /root
@@ -176,6 +181,7 @@ RUN PKG_CONFIG_PATH="/root/onig-install/lib/pkgconfig:/root/openssl-install/lib/
     --with-curl=/root/curl-install \
     --with-sqlite3 \
     --with-pdo-sqlite \
+    --enable-zip \
     --disable-cli \
     --disable-cgi \
     --disable-fpm \
