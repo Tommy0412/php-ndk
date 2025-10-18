@@ -151,7 +151,7 @@ RUN sed -i 's/r = posix_spawn_file_actions_addchdir_np(&factions, cwd);/r = -1; 
 # syslog patch
 RUN sed -i 's/#define syslog std_syslog/#ifdef __ANDROID__\n#define syslog(...)\n#else\n#define syslog std_syslog\n#endif/' main/php_syslog.c
 
-RUN echo 'gethostname_stub.lo' >> /root/php-${PHP_VERSION}/ext/standard/Makefile.frag
+RUN printf "gethostname_stub.lo\n" >> /root/php-${PHP_VERSION}/ext/standard/Makefile.frag
 
 # Prepare build directories
 WORKDIR /root
@@ -174,7 +174,7 @@ RUN PKG_CONFIG_PATH="/root/onig-install/lib/pkgconfig:/root/openssl-install/lib/
     --with-curl=/root/curl-install \
     --with-sqlite3 \
     --with-pdo-sqlite \
-    --enable-zip \
+    --with-zip \
     --disable-cli \
     --disable-cgi \
     --disable-fpm \
