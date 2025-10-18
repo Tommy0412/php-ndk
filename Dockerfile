@@ -128,28 +128,15 @@ RUN wget https://www.php.net/distributions/php-${PHP_VERSION}.tar.gz && \
 COPY *.patch /root/
 WORKDIR /root/php-${PHP_VERSION}
 
-# Create gethostname stub for Android
-RUN echo '#ifdef __ANDROID__' > /root/php-${PHP_VERSION}/ext/standard/gethostname_stub.c && \
-    echo '#include "php.h"' >> /root/php-${PHP_VERSION}/ext/standard/gethostname_stub.c && \
-    echo '#include <sys/system_properties.h>' >> /root/php-${PHP_VERSION}/ext/standard/gethostname_stub.c && \
-    echo '#include <string.h>' >> /root/php-${PHP_VERSION}/ext/standard/gethostname_stub.c && \
-    echo 'PHP_FUNCTION(gethostname) {' >> /root/php-${PHP_VERSION}/ext/standard/gethostname_stub.c && \
-    echo '    char hostname[PROP_VALUE_MAX];' >> /root/php-${PHP_VERSION}/ext/standard/gethostname_stub.c && \
-    echo '    __system_property_get("net.hostname", hostname);' >> /root/php-${PHP_VERSION}/ext/standard/gethostname_stub.c && \
-    echo '    if (strlen(hostname) == 0) {' >> /root/php-${PHP_VERSION}/ext/standard/gethostname_stub.c && \
-    echo '        RETURN_FALSE;' >> /root/php-${PHP_VERSION}/ext/standard/gethostname_stub.c && \
-    echo '    }' >> /root/php-${PHP_VERSION}/ext/standard/gethostname_stub.c && \
-    echo '    RETURN_STRING(hostname);' >> /root/php-${PHP_VERSION}/ext/standard/gethostname_stub.c && \
-    echo '}' >> /root/php-${PHP_VERSION}/ext/standard/gethostname_stub.c && \
-    echo '#endif' >> /root/php-${PHP_VERSION}/ext/standard/gethostname_stub.c
-
 # Android POSIX fixes
 RUN sed -i '1i#ifdef __ANDROID__\n#define eaccess(path, mode) access(path, mode)\n#endif' /root/php-8.4.2/ext/posix/posix.c
 
-RUN patch -p1 < ../ext-posix-posix.c.patch && \
-    patch -p1 < ../resolv.patch && \
-    patch -p1 < ../ext-standard-php_fopen_wrapper.c.patch && \
-    patch -p1 < ../main-streams-cast.c.patch
+RUN \
+patch -p1 < ../resolv.patch && \
+patch -p1 < ../ext-standard-php_fopen_wrapper.c.patch && \
+patch -p1 < ../main-streams-cast.c.patch && \
+patch -p1 < ../fork.patch \
+;    
     
 # Apply Android DNS stub
 RUN { \
@@ -182,7 +169,8 @@ RUN sed -i 's/r = posix_spawn_file_actions_addchdir_np(&factions, cwd);/r = -1; 
 RUN sed -i 's/#define syslog std_syslog/#ifdef __ANDROID__\n#define syslog(...)\n#else\n#define syslog std_syslog\n#endif/' main/php_syslog.c
 
 # Add the custom file to the build process
-RUN printf "\tgethostname_stub.lo\n" >> /root/php-${PHP_VERSION}/ext/standard/Makefile.frag
+# RUN printf "\tgethostname_stub.lo\n" >> /root/php-${PHP_VERSION}/ext/standard/Makefile.frag
+# RUN sed -i '/^EXTRA_OBJS =/ s/$/ gethostname_stub.lo/' /root/php-${PHP_VERSION}/ext/standard/Makefile.frag
 
 # Prepare build directories
 WORKDIR /root
