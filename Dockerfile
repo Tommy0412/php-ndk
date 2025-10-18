@@ -107,8 +107,11 @@ RUN wget https://www.php.net/distributions/php-${PHP_VERSION}.tar.gz && \
 COPY *.patch /root/
 WORKDIR /root/php-${PHP_VERSION}
 
-# Disable gethostname function for Android
-RUN sed -i 's/PHP_FE(gethostname, arginfo_gethostname)/\/\/ PHP_FE(gethostname, arginfo_gethostname)/' /root/php-${PHP_VERSION}/ext/standard/basic_functions.c
+# Create gethostname stub for Android
+RUN echo '#ifdef __ANDROID__' > /root/php-${PHP_VERSION}/ext/standard/gethostname_stub.c && \
+    echo '#include "php.h"' >> /root/php-${PHP_VERSION}/ext/standard/gethostname_stub.c && \
+    echo 'PHP_FUNCTION(gethostname) { RETURN_FALSE; }' >> /root/php-${PHP_VERSION}/ext/standard/gethostname_stub.c && \
+    echo '#endif' >> /root/php-${PHP_VERSION}/ext/standard/gethostname_stub.c
 
 # Android POSIX fixes
 RUN sed -i '1i#ifdef __ANDROID__\n#define eaccess(path, mode) access(path, mode)\n#endif' /root/php-8.4.2/ext/posix/posix.c
@@ -239,6 +242,7 @@ FROM alpine:3.21
 COPY --from=buildsystem /root/install/ /artifacts/
 COPY --from=buildsystem /root/build/ /artifacts/headers/php-build/
 COPY --from=buildsystem /root/php-8.4.2/ /artifacts/headers/php-source/
+COPY --from=buildsystem /root/php-android-output/include/php/ /artifacts/headers/php/
 COPY --from=buildsystem /root/install/libonig.so /artifacts/libonig.so
 
 WORKDIR /artifacts
