@@ -49,6 +49,33 @@ RUN ANDROID_NDK_HOME="/opt/android-ndk-r27c" ./Configure android-arm64 \
     make -j4 && \
     make install_sw
 
+# --- After make install_sw for openssl ---
+WORKDIR /root/openssl-install/lib
+
+# Ensure versioned files exist and are real files (not symlink loops)
+# If build produced only libssl.so and libcrypto.so (or only versioned names),
+# make sure both the versioned and unversioned names are present as real files
+# so the Android loader can find what libphp expects.
+# Prefer creating/copying the actual versioned names the linker will look for.
+
+# If libssl.so.1.1 exists, copy a real file to libssl.so.1.1 (no-op if same)
+if [ -f libssl.so.1.1 ]; then cp -f libssl.so.1.1 libssl.so.1.1; fi
+# If only libssl.so exists but no libssl.so.1.1, copy to the versioned name:
+if [ -f libssl.so ] && [ ! -f libssl.so.1.1 ]; then cp -f libssl.so libssl.so.1.1; fi
+
+if [ -f libcrypto.so.1.1 ]; then cp -f libcrypto.so.1.1 libcrypto.so.1.1; fi
+if [ -f libcrypto.so ] && [ ! -f libcrypto.so.1.1 ]; then cp -f libcrypto.so libcrypto.so.1.1; fi
+
+# Now copy the exact files you will bundle inside the APK to /root/install
+# Copy ONLY the versioned shared libraries that the Android loader expects
+# and the libphp.so you built
+mkdir -p /root/install
+cp -f libssl.so.1.1 /root/install/
+cp -f libcrypto.so.1.1 /root/install/
+# optionally, if you want the unversioned names too (not required), copy them:
+cp -f libssl.so /root/install/ || true
+cp -f libcrypto.so /root/install/ || true
+
 # Build cURL for Android
 WORKDIR /root
 RUN wget https://curl.se/download/curl-8.13.0.tar.gz && \
@@ -143,10 +170,6 @@ RUN sed -i 's/r = posix_spawn_file_actions_addchdir_np(&factions, cwd);/r = -1; 
 
 # syslog patch
 RUN sed -i 's/#define syslog std_syslog/#ifdef __ANDROID__\n#define syslog(...)\n#else\n#define syslog std_syslog\n#endif/' main/php_syslog.c
-
-cd /root/openssl-install/lib
-ln -sf libssl.so.1.1 libssl.so
-ln -sf libcrypto.so.1.1 libcrypto.so
 
 # Prepare build directories
 WORKDIR /root
