@@ -53,12 +53,10 @@ RUN ANDROID_NDK_HOME="/opt/android-ndk-r27c" ./Configure android-arm64 \
 
 # After "make install_sw"
 RUN cd /root/openssl-install/lib && \
-    # Remove any symlinks that might cause loops
-    rm -f libssl.so.1.1 libcrypto.so.1.1 && \
-    # Create REAL copies with the versioned names
-    cp -f libssl.so libssl.so.1.1 && \
-    cp -f libcrypto.so libcrypto.so.1.1 && \
-    # Copy all to /root/install/
+    # If libssl.so does not exist, create it from libssl.so.1.1
+    if [ ! -f libssl.so ] && [ -f libssl.so.1.1 ]; then cp libssl.so.1.1 libssl.so; fi && \
+    if [ ! -f libcrypto.so ] && [ -f libcrypto.so.1.1 ]; then cp libcrypto.so.1.1 libcrypto.so; fi && \
+    # Now also copy both names to /root/install/
     cp -f libssl.so* /root/install/ && \
     cp -f libcrypto.so* /root/install/
 
