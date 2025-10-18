@@ -53,10 +53,14 @@ RUN ANDROID_NDK_HOME="/opt/android-ndk-r27c" ./Configure android-arm64 \
 
 # After "make install_sw"
 RUN cd /root/openssl-install/lib && \
-    ln -sf libssl.so libssl.so.1.1 && \
-    ln -sf libcrypto.so libcrypto.so.1.1 && \
-    cp libssl.so* /root/install/ && \
-    cp libcrypto.so* /root/install/
+    # Remove any symlinks that might cause loops
+    rm -f libssl.so.1.1 libcrypto.so.1.1 && \
+    # Create REAL copies with the versioned names
+    cp -f libssl.so libssl.so.1.1 && \
+    cp -f libcrypto.so libcrypto.so.1.1 && \
+    # Copy all to /root/install/
+    cp -f libssl.so* /root/install/ && \
+    cp -f libcrypto.so* /root/install/
 
 # Build cURL for Android
 WORKDIR /root
@@ -226,9 +230,6 @@ RUN cp /root/onig-install/lib/libonig.so /root/install/
 RUN cp /root/php-android-output/lib/libphp.so /root/install/
 RUN cp /root/sqlite-amalgamation-${SQLITE3_VERSION}/libsqlite3.so /root/install/
 RUN cp /root/curl-install/lib/libcurl.so /root/install/
-
-RUN cp /root/openssl-install/lib/libssl.so* /root/install/ && \
-    cp /root/openssl-install/lib/libcrypto.so* /root/install/
 
 # --- FINAL STAGE ---
 FROM alpine:3.21
