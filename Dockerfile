@@ -98,9 +98,7 @@ RUN ./configure \
     make -j$(nproc) && \
     make install
 
-# -----------------------------
-# 1️⃣ Build libzip for Android
-# -----------------------------
+# Build libzip for Android
 WORKDIR /root
 ENV LIBZIP_VERSION=1.11.4
 RUN curl -LO https://libzip.org/download/libzip-${LIBZIP_VERSION}.tar.gz \
@@ -184,8 +182,7 @@ RUN sed -i 's/r = posix_spawn_file_actions_addchdir_np(&factions, cwd);/r = -1; 
 RUN sed -i 's/#define syslog std_syslog/#ifdef __ANDROID__\n#define syslog(...)\n#else\n#define syslog std_syslog\n#endif/' main/php_syslog.c
 
 # Add the custom file to the build process
-# RUN printf "gethostname_stub.lo\n" >> /root/php-${PHP_VERSION}/ext/standard/Makefile.frag
-RUN echo "gethostname_stub.lo" >> /root/php-${PHP_VERSION}/ext/standard/Makefile.frag
+RUN printf "\tgethostname_stub.lo\n" >> /root/php-${PHP_VERSION}/ext/standard/Makefile.frag
 
 # Prepare build directories
 WORKDIR /root
