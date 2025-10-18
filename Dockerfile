@@ -200,7 +200,6 @@ RUN PKG_CONFIG_PATH="/root/onig-install/lib/pkgconfig:/root/openssl-install/lib/
         -I/root/onig-install/include" \
     LDFLAGS="-pie -shared \
              -L/root/sqlite-amalgamation-${SQLITE3_VERSION} \
-             -L/root/openssl-install/lib \
              -L/root/curl-install/lib \
              -L/root/onig-install/lib \
              -L${SYSROOT}/usr/lib/${TARGET}/${API} \
