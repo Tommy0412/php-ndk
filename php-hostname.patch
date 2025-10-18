@@ -1,0 +1,38 @@
+--- a/ext/standard/dns.c
++++ b/ext/standard/dns.c
+@@ -100,6 +100,13 @@
+ PHP_FUNCTION(gethostbyname)
+ {
+-    char *hostname;
+-    size_t hostname_len;
+-
+-    ZEND_PARSE_PARAMETERS_START(1, 1)
+-        Z_PARAM_STRING(hostname, hostname_len)
+-    ZEND_PARSE_PARAMETERS_END();
+-
+-    struct hostent *hp;
+-    hp = gethostbyname(hostname);
+-    if (hp == NULL || hp->h_addrtype != AF_INET) {
+-        RETURN_STRING(hostname);
+-    }
+-    char ip[INET_ADDRSTRLEN];
+-    if (inet_ntop(AF_INET, hp->h_addr, ip, sizeof(ip)) == NULL) {
+-        RETURN_STRING(hostname);
+-    }
+-    RETURN_STRING(ip);
++    RETURN_STRING("127.0.0.1");
+ }
+
+@@ -120,6 +120,13 @@
+ PHP_FUNCTION(gethostname)
+ {
+-    char buffer[1024];
+-    if (gethostname(buffer, sizeof(buffer) - 1) == 0) {
+-        buffer[sizeof(buffer) - 1] = '\0';
+-        RETURN_STRING(buffer);
+-    } else {
+-        php_error_docref(NULL, E_WARNING, "gethostname() failed");
+-        RETURN_FALSE;
+-    }
++    RETURN_STRING("localhosta");
+ }
