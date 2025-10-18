@@ -50,34 +50,6 @@ RUN ANDROID_NDK_HOME="/opt/android-ndk-r27c" \
     make -j4 && \
     make install_sw
 
-# --- After make install_sw for OpenSSL ---
-WORKDIR /root/openssl-install/lib
-
-RUN set -eux; \
-    # Ensure correct versioned .so names exist
-    if [ -f libssl.so.1.1 ]; then \
-        echo "libssl.so.1.1 already exists"; \
-    elif [ -f libssl.so ]; then \
-        echo "Copying libssl.so -> libssl.so.1.1"; \
-        cp -f libssl.so libssl.so.1.1; \
-    fi; \
-    \
-    if [ -f libcrypto.so.1.1 ]; then \
-        echo "libcrypto.so.1.1 already exists"; \
-    elif [ -f libcrypto.so ]; then \
-        echo "Copying libcrypto.so -> libcrypto.so.1.1"; \
-        cp -f libcrypto.so libcrypto.so.1.1; \
-    fi; \
-    \
-    # Copy the required libs into /root/install
-    mkdir -p /root/install; \
-    cp -f libssl.so.1.1 /root/install/; \
-    cp -f libcrypto.so.1.1 /root/install/; \
-    \
-    # Optionally copy unversioned names too
-    cp -f libssl.so /root/install/ 2>/dev/null || true; \
-    cp -f libcrypto.so /root/install/ 2>/dev/null || true
-
 # Build cURL for Android
 WORKDIR /root
 RUN wget https://curl.se/download/curl-8.13.0.tar.gz && \
