@@ -130,6 +130,11 @@ WORKDIR /root/php-${PHP_VERSION}
 
 # Android POSIX fixes
 RUN sed -i '1i#ifdef __ANDROID__\n#define eaccess(path, mode) access(path, mode)\n#endif' /root/php-8.4.2/ext/posix/posix.c
+
+RUN echo 'typedef void* dns_handle_t; \
+int dns_search(...) { return -1; } \
+int dns_open(...) { return 0; } \
+void dns_free(...) {}' >> /root/php-${PHP_VERSION}/ext/standard/php_dns.h
     
 RUN patch -p1 < ../ext-standard-dns.c.patch && \
     patch -p1 < ../ext-posix-posix.c.patch && \
