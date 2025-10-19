@@ -260,6 +260,9 @@ RUN PKG_CONFIG_PATH="/root/libzip-install/lib/pkgconfig:/root/onig-install/lib/p
          -L${SYSROOT}/usr/lib/${TARGET}/${API} \
          -lc -ldl -llog -latomic"
 
+# --- CRITICAL FIX PART 1: Force HAVE_GETHOSTNAME ---
+# Manually define the macro in config.h so the PHP function zif_gethostname compiles.
+RUN sed -i 's/\/\* #undef HAVE_GETHOSTNAME \*\//#define HAVE_GETHOSTNAME 1/g' config.h
 
 # Download missing Android DNS headers
 RUN for hdr in resolv_params.h resolv_private.h resolv_static.h resolv_stats.h; do \
