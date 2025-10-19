@@ -261,14 +261,20 @@ RUN PKG_CONFIG_PATH="/root/libzip-install/lib/pkgconfig:/root/onig-install/lib/p
          -L${SYSROOT}/usr/lib/${TARGET}/${API} \
          -lc -ldl -llog -latomic"
 
-# Separate RUN block ensures config.h is fully created before sed runs.
-RUN sed -i 's/\/\* #undef HAVE_GETHOSTNAME \*\//#define HAVE_GETHOSTNAME 1/g' /root/build/config.h
-
 # Download missing Android DNS headers
 RUN for hdr in resolv_params.h resolv_private.h resolv_static.h resolv_stats.h; do \
       curl https://android.googlesource.com/platform/bionic/+/refs/heads/android12--mainline-release/libc/dns/include/$hdr?format=TEXT | base64 -d > $hdr; \
     done
-  
+ # DIAGNOSTIC: Find where gethostname is actually used
+RUN echo "=== Searching for gethostname in entire PHP source ==="
+RUN find ../php-${PHP_VERSION} -name "*.c" -o -name "*.h" | xargs grep -l "gethostname" 2>/dev/null || echo "No files contain gethostname"
+
+RUN echo "=== Searching for zif_gethostname in entire PHP source ==="  
+RUN find ../php-${PHP_VERSION} -name "*.c" -o -name "*.h" | xargs grep -l "zif_gethostname" 2>/dev/null || echo "No files contain zif_gethostname"
+
+RUN echo "=== Checking PHP function table ==="
+RUN find ../php-${PHP_VERSION} -name "*.c" | xargs grep -n "gethostname" 2>/dev/null | head -20 || echo "No gethostname references found" 
+
 # Build and install PHP with embed SAPI
 # RUN make -j7 && make install
 
