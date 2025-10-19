@@ -123,10 +123,15 @@ RUN mkdir build && cd build \
 WORKDIR /root
 RUN wget https://www.php.net/distributions/php-${PHP_VERSION}.tar.gz && \
     tar -xvf php-${PHP_VERSION}.tar.gz
-    
+
 # Apply patches
 COPY *.patch /root/
 WORKDIR /root/php-${PHP_VERSION}
+# First, let's see what calls zif_gethostname
+RUN grep -r "zif_gethostname" ../php-${PHP_VERSION}/
+
+# Check which extension uses it
+RUN grep -r "gethostname" ../php-${PHP_VERSION}/ext/
 
 # Android POSIX fixes
 # RUN sed -i '1i#ifdef __ANDROID__\n#define eaccess(path, mode) access(path, mode)\n#endif' /root/php-8.4.2/ext/posix/posix.c
@@ -173,23 +178,29 @@ WORKDIR /root
 RUN mkdir -p build install
 WORKDIR /root/build
 
-# Create android_compat.c
-# Create the file step by step
-RUN echo '#include <string.h>' > /root/build/android_compat.c
-RUN echo '#include <unistd.h>' >> /root/build/android_compat.c
-RUN echo '' >> /root/build/android_compat.c
-RUN echo 'int gethostname(char *name, size_t len) {' >> /root/build/android_compat.c
-RUN echo '    const char* hostname = "android";' >> /root/build/android_compat.c
-RUN echo '    if (name && len > 0) {' >> /root/build/android_compat.c
-RUN echo '        size_t i;' >> /root/build/android_compat.c
-RUN echo '        for (i = 0; i < len - 1 && hostname[i] != '\''\\0'\''; i++) {' >> /root/build/android_compat.c
-RUN echo '            name[i] = hostname[i];' >> /root/build/android_compat.c
-RUN echo '        }' >> /root/build/android_compat.c
-RUN echo '        name[i] = '\''\\0'\'';' >> /root/build/android_compat.c
-RUN echo '        return 0;' >> /root/build/android_compat.c
-RUN echo '    }' >> /root/build/android_compat.c
-RUN echo '    return -1;' >> /root/build/android_compat.c
-RUN echo '}' >> /root/build/android_compat.c
+# --- CRITICAL FIX PART 2: C Stub for gethostname linker error ---
+# Patch basic_functions.c to define the C function 'gethostname' locally for Android.
+# This uses the robust cat/mv method to guarantee the patch is prepended.
+RUN ( \
+    echo '#include <string.h>'; \
+    echo ''; \
+    echo '#ifndef PHP_ANDROID_GETHOSTNAME_STUB'; \
+    echo '#define PHP_ANDROID_GETHOSTNAME_STUB'; \
+    echo '#ifdef __ANDROID__'; \
+    echo '/* Local stub to prevent linker error. Android hostnames are generic anyway. */'; \
+    echo 'int gethostname(char *name, size_t len)'; \
+    echo '{'; \
+    echo '    strncpy(name, "localhost", len);'; \
+    echo "    name[len-1] = '\\0';"; \
+    echo '    return 0;'; \
+    echo '}'; \
+    echo '#endif'; \
+    echo '#endif'; \
+    echo ''; \
+) > /tmp/gethostname_stub.c && \
+    cat /tmp/gethostname_stub.c ext/standard/basic_functions.c > ext/standard/basic_functions.c.new && \
+    mv ext/standard/basic_functions.c.new ext/standard/basic_functions.c && \
+    rm /tmp/gethostname_stub.c
 
 # RUN PKG_CONFIG_PATH="/root/onig-install/lib/pkgconfig:/root/openssl-install/lib/pkgconfig:/root/curl-install/lib/pkgconfig" \
 RUN PKG_CONFIG_PATH="/root/libzip-install/lib/pkgconfig:/root/onig-install/lib/pkgconfig:/root/openssl-install/lib/pkgconfig:/root/curl-install/lib/pkgconfig" \
@@ -253,38 +264,16 @@ RUN PKG_CONFIG_PATH="/root/libzip-install/lib/pkgconfig:/root/onig-install/lib/p
          -L/root/libzip-install/lib \
          -L${SYSROOT}/usr/lib/${TARGET}/${API} \
          -lc -ldl -llog -latomic"
+  # --- FIX CHAINED HERE: Manually define HAVE_GETHOSTNAME immediately after configure ---
+  && sed -i 's/\/\* #undef HAVE_GETHOSTNAME \*\//#define HAVE_GETHOSTNAME 1/g' config.h
 
 # Download missing Android DNS headers
 RUN for hdr in resolv_params.h resolv_private.h resolv_static.h resolv_stats.h; do \
       curl https://android.googlesource.com/platform/bionic/+/refs/heads/android12--mainline-release/libc/dns/include/$hdr?format=TEXT | base64 -d > $hdr; \
     done
-
-# Compile it first
-RUN ${CC} -c -fPIC android_compat.c -o android_compat.o    
-
+  
 # Build and install PHP with embed SAPI
 # RUN make -j7 && make install
-# Build PHP first without installing
-RUN make -j7
-
-# Manually create libphp.so with our compat object
-RUN find /root/build -name "*.o" > all_objects.txt
-RUN ${CC} -shared -fPIC -o libs/libphp.so \
-    $(find /root/build -name "*.o" | grep -v 'android_compat') \
-    /root/build/android_compat.o \
-    -Wl,--whole-archive \
-    /root/openssl-install/lib/libssl.a \
-    /root/openssl-install/lib/libcrypto.a \
-    -Wl,--no-whole-archive \
-    -L/root/sqlite-amalgamation-${SQLITE3_VERSION} \
-    -L/root/curl-install/lib \
-    -L/root/onig-install/lib \
-    -L/root/libzip-install/lib \
-    -L${SYSROOT}/usr/lib/${TARGET}/${API} \
-    -lcurl -lonig -lzip -lsqlite3 -lc -ldl -llog -latomic
-
-# Then install
-RUN make install
 
 # Copy the compiled libraries
 RUN cp /root/onig-install/lib/libonig.so /root/install/
