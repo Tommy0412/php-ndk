@@ -132,6 +132,7 @@ WORKDIR /root/php-${PHP_VERSION}
 # RUN sed -i '1i#ifdef __ANDROID__\n#define eaccess(path, mode) access(path, mode)\n#endif' /root/php-8.4.2/ext/posix/posix.c
 
 RUN \
+patch -p1 < ../gethostname_patch.patch && \
 patch -p1 < ../resolv.patch && \
 patch -p1 < ../ext-standard-php_fopen_wrapper.c.patch && \
 patch -p1 < ../main-streams-cast.c.patch && \
@@ -187,7 +188,6 @@ RUN PKG_CONFIG_PATH="/root/libzip-install/lib/pkgconfig:/root/onig-install/lib/p
     --host=${TARGET} \
     --prefix=/root/php-android-output \
     --enable-embed=shared \
-    --disable-posix \
     --with-openssl=/root/openssl-install \
     --with-curl=/root/curl-install \
     --with-sqlite3 \
@@ -201,6 +201,8 @@ RUN PKG_CONFIG_PATH="/root/libzip-install/lib/pkgconfig:/root/onig-install/lib/p
     --disable-xml \
     --disable-xmlreader \
     --disable-xmlwriter \
+    --disable-posix \
+    --disable-random \
     --without-pear \
     --without-libxml \
     --disable-phar \
@@ -234,28 +236,12 @@ RUN PKG_CONFIG_PATH="/root/libzip-install/lib/pkgconfig:/root/onig-install/lib/p
          -L/root/onig-install/lib \
          -L/root/libzip-install/lib \
          -L${SYSROOT}/usr/lib/${TARGET}/${API} \
-         -lc -ldl -llog -latomic"
+         -lc -ldl"
 
 # Download missing Android DNS headers
 RUN for hdr in resolv_params.h resolv_private.h resolv_static.h resolv_stats.h; do \
       curl https://android.googlesource.com/platform/bionic/+/refs/heads/android12--mainline-release/libc/dns/include/$hdr?format=TEXT | base64 -d > $hdr; \
     done
- # DIAGNOSTIC: Find where gethostname is actually used
-RUN echo "=== Searching for gethostname in entire PHP source ==="
-RUN find ../php-${PHP_VERSION} -name "*.c" -o -name "*.h" | xargs grep -l "gethostname" 2>/dev/null || echo "No files contain gethostname"
-
-RUN echo "=== Searching for zif_gethostname in entire PHP source ==="  
-RUN find ../php-${PHP_VERSION} -name "*.c" -o -name "*.h" | xargs grep -l "zif_gethostname" 2>/dev/null || echo "No files contain zif_gethostname"
-
-RUN echo "=== Checking PHP function table ==="
-RUN find ../php-${PHP_VERSION} -name "*.c" | xargs grep -n "gethostname" 2>/dev/null | head -20 || echo "No gethostname references found" 
-
-# Check which extensions are configured
-RUN echo "=== Checking configured extensions ==="
-RUN ../php-${PHP_VERSION}/configure --help | grep -i enable || echo "Cannot run configure --help"
-
-RUN echo "=== Checking if standard extension is enabled ==="  
-RUN grep -r "standard" ../php-${PHP_VERSION}/ext/ || echo "No standard extension found"
 
 # Build and install PHP with embed SAPI
 # RUN make -j7 && make install
