@@ -1,0 +1,20 @@
+--- a/ext/standard/dns.c
++++ b/ext/standard/dns.c
+@@
++#ifdef __ANDROID__
++#include "php.h"
++#include "php_ini.h"
++#include "ext/standard/php_dns.h"
++
++PHP_FUNCTION(gethostbyname)
++{
++    RETURN_FALSE;
++}
++
++PHP_FUNCTION(gethostbynamel)
++{
++    RETURN_FALSE;
++}
++
++// add stubs for any other DNS functions that might be compiled
++#endif
