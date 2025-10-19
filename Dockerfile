@@ -157,6 +157,8 @@ RUN PKG_CONFIG_PATH="/root/libzip-install/lib/pkgconfig:/root/onig-install/lib/p
   ONIG_LIBS="-L/root/onig-install/lib -lonig" \
   LIBZIP_CFLAGS="-I/root/libzip-install/include" \
   LIBZIP_LIBS="-L/root/libzip-install/lib -lzip" \
+  ac_cv_func_gethostname=yes \
+  ../php-${PHP_VERSION}/configure \
     --host=${TARGET} \
     --prefix=/root/php-android-output \
     --enable-embed=shared \
