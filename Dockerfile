@@ -263,8 +263,8 @@ RUN PKG_CONFIG_PATH="/root/libzip-install/lib/pkgconfig:/root/onig-install/lib/p
          -L/root/onig-install/lib \
          -L/root/libzip-install/lib \
          -L${SYSROOT}/usr/lib/${TARGET}/${API} \
-         -lc -ldl -llog -latomic"
-  # --- FIX CHAINED HERE: Manually define HAVE_GETHOSTNAME immediately after configure ---
+         -lc -ldl -llog -latomic" \
+
   && sed -i 's/\/\* #undef HAVE_GETHOSTNAME \*\//#define HAVE_GETHOSTNAME 1/g' config.h
 
 # Download missing Android DNS headers
