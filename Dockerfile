@@ -173,21 +173,7 @@ RUN sed -i 's/#define syslog std_syslog/#ifdef __ANDROID__\n#define syslog(...)\
 # This prevents the linker from marking 'zif_gethostname' as undefined (U) and requiring
 # an external symbol from the Bionic C library that it can't resolve correctly.
 RUN sed -i '1i#include <string.h>' ext/standard/basic_functions.c && \
-    sed -i '/^#ifndef PHP_WIN32$/i \ \
-#ifdef __ANDROID__\n\
-/* Local stub to prevent linker error. Android hostnames are generic anyway. */\n\
-int gethostname(char *name, size_t len)\n\
-{\n\
-    strncpy(name, "localhost", len);\n\
-    name[len-1] = \'\\0\';\n\
-    return 0;\n\
-}\n\
-#endif\n\
-' ext/standard/basic_functions.c
-
-# Add the custom file to the build process
-# RUN printf "\tgethostname_stub.lo\n" >> /root/php-${PHP_VERSION}/ext/standard/Makefile.frag
-# RUN sed -i '/^EXTRA_OBJS =/ s/$/ gethostname_stub.lo/' /root/php-${PHP_VERSION}/ext/standard/Makefile.frag
+    sed -i '/^#ifndef PHP_WIN32$/i#ifdef __ANDROID__\\n\/* Local stub to prevent linker error. Android hostnames are generic anyway. *\/\\nint gethostname(char *name, size_t len)\\n{\\n    strncpy(name, "localhost", len);\\n    name[len-1] = '\''\\0'\'';\\n    return 0;\\n}\\n#endif\\n' ext/standard/basic_functions.c
 
 # Prepare build directories
 WORKDIR /root
