@@ -131,45 +131,11 @@ WORKDIR /root/php-${PHP_VERSION}
 # Android POSIX fixes
 RUN sed -i '1i#ifdef __ANDROID__\n#define eaccess(path, mode) access(path, mode)\n#endif' /root/php-8.4.2/ext/posix/posix.c
     
-RUN patch -p1 < ../ext-posix-posix.c.patch && \
+RUN patch -p1 < ../ext-standard-dns.c.patch && \
+    patch -p1 < ../ext-posix-posix.c.patch && \
     patch -p1 < ../resolv.patch && \
     patch -p1 < ../ext-standard-php_fopen_wrapper.c.patch && \
     patch -p1 < ../main-streams-cast.c.patch   
-
-# Apply Android DNS stub properly
-RUN cat > /root/dns_stub.patch << 'PATCH_EOF'
---- a/ext/standard/dns.c
-+++ b/ext/standard/dns.c
-@@ -1,3 +1,24 @@
-+#ifdef __ANDROID__
-+#include <sys/socket.h>
-+#include <netinet/in.h>
-+#include <sys/types.h>
-+
-+typedef void* dns_handle_t;
-+static inline dns_handle_t dns_open(const char *nameserver) { return NULL; }
-+static inline void dns_free(dns_handle_t handle) {}
-+static inline int dns_search(dns_handle_t handle, const char *dname, int class, int type,
-+    unsigned char *answer, int anslen, struct sockaddr *from, socklen_t *fromsize) {
-+    return -1;
-+}
-+
-+/* Android gethostname implementation */
-+PHP_FUNCTION(gethostname)
-+{
-+    ZEND_PARSE_PARAMETERS_NONE();
-+    RETURN_STRING("localhost");
-+}
-+#else
-+
- /* Original dns.c content continues... */
-PATCH_EOF
-
-# Apply the patch
-RUN patch -p1 < /root/dns_stub.patch
-
-# Add the closing #endif at the end of dns.c
-RUN echo '#endif /* __ANDROID__ */' >> ext/standard/dns.c
 
 # Patch proc_open.c for Android
 RUN sed -i 's/r = posix_spawn_file_actions_addchdir_np(&factions, cwd);/r = -1; \/\/ Android compatibility/' ext/standard/proc_open.c
@@ -191,8 +157,6 @@ RUN PKG_CONFIG_PATH="/root/libzip-install/lib/pkgconfig:/root/onig-install/lib/p
   ONIG_LIBS="-L/root/onig-install/lib -lonig" \
   LIBZIP_CFLAGS="-I/root/libzip-install/include" \
   LIBZIP_LIBS="-L/root/libzip-install/lib -lzip" \
-  ac_cv_func_gethostname=no \
-  ../php-${PHP_VERSION}/configure \
     --host=${TARGET} \
     --prefix=/root/php-android-output \
     --enable-embed=shared \
