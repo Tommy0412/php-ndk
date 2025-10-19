@@ -168,34 +168,6 @@ RUN sed -i 's/r = posix_spawn_file_actions_addchdir_np(&factions, cwd);/r = -1; 
 # syslog patch
 RUN sed -i 's/#define syslog std_syslog/#ifdef __ANDROID__\n#define syslog(...)\n#else\n#define syslog std_syslog\n#endif/' main/php_syslog.c
 
-# --- CRITICAL FIX for 'U gethostname' linker error ---
-# Patch basic_functions.c to define the C function 'gethostname' locally for Android.
-# This uses the robust cat/mv method to guarantee the patch is prepended.
-RUN ( \
-        echo '#include <string.h>'; \
-        echo ''; \
-        echo '#ifndef PHP_ANDROID_GETHOSTNAME_STUB'; \
-        echo '#define PHP_ANDROID_GETHOSTNAME_STUB'; \
-        echo '#ifdef __ANDROID__'; \
-        echo '/* Local stub to prevent linker error. Android hostnames are generic anyway. */'; \
-        echo 'int gethostname(char *name, size_t len)'; \
-        echo '{'; \
-        echo '    strncpy(name, "localhost", len);'; \
-        echo "    name[len-1] = '\\0';"; \
-        echo '    return 0;'; \
-        echo '}'; \
-        echo '#endif'; \
-        echo '#endif'; \
-        echo ''; \
-    ) > /tmp/gethostname_stub.c && \
-    cat /tmp/gethostname_stub.c ext/standard/basic_functions.c > ext/standard/basic_functions.c.new && \
-    mv ext/standard/basic_functions.c.new ext/standard/basic_functions.c && \
-    rm /tmp/gethostname_stub.c
-
-# --- CRITICAL FIX PART 1: Force HAVE_GETHOSTNAME ---
-# Manually define the macro in config.h so the PHP function zif_gethostname compiles.
-RUN sed -i 's/\/\* #undef HAVE_GETHOSTNAME \*\//#define HAVE_GETHOSTNAME 1/g' config.h
-
 # Prepare build directories
 WORKDIR /root
 RUN mkdir -p build install
@@ -247,6 +219,7 @@ RUN PKG_CONFIG_PATH="/root/libzip-install/lib/pkgconfig:/root/onig-install/lib/p
     CFLAGS="-DOPENSSL_NO_EGD -DRAND_egd\(file\)=0 \
         -DANDROID -fPIE -fPIC \
         -Dexplicit_bzero\(a,b\)=memset\(a,0,b\) \
+        -Dgethostname\(a,b\)=\(strncpy\(a,\"android\",b\),a\[b-1\]='\\0',0\) \
         -I${SYSROOT}/usr/include \
         -I/root/sqlite-amalgamation-${SQLITE3_VERSION} \
         -I/root/openssl-install/include \
