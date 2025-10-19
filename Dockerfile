@@ -168,14 +168,10 @@ RUN sed -i 's/r = posix_spawn_file_actions_addchdir_np(&factions, cwd);/r = -1; 
 # syslog patch
 RUN sed -i 's/#define syslog std_syslog/#ifdef __ANDROID__\n#define syslog(...)\n#else\n#define syslog std_syslog\n#endif/' main/php_syslog.c
 
-# Prepare build directories
-WORKDIR /root
-RUN mkdir -p build install
-WORKDIR /root/build
-
 # --- CRITICAL FIX PART 2: C Stub for gethostname linker error ---
 # Patch basic_functions.c to define the C function 'gethostname' locally for Android.
 # This uses the robust cat/mv method to guarantee the patch is prepended.
+# FIX: Using explicit absolute paths to avoid the 'nonexistent directory' error caused by shell context issues.
 RUN ( \
     echo '#include <string.h>'; \
     echo ''; \
@@ -193,9 +189,14 @@ RUN ( \
     echo '#endif'; \
     echo ''; \
 ) > /tmp/gethostname_stub.c && \
-    cat /tmp/gethostname_stub.c ext/standard/basic_functions.c > ext/standard/basic_functions.c.new && \
-    mv ext/standard/basic_functions.c.new ext/standard/basic_functions.c && \
+    cat /tmp/gethostname_stub.c /root/php-${PHP_VERSION}/ext/standard/basic_functions.c > /root/php-${PHP_VERSION}/ext/standard/basic_functions.c.new && \
+    mv /root/php-${PHP_VERSION}/ext/standard/basic_functions.c.new /root/php-${PHP_VERSION}/ext/standard/basic_functions.c && \
     rm /tmp/gethostname_stub.c
+
+# Prepare build directories
+WORKDIR /root
+RUN mkdir -p build install
+WORKDIR /root/build
 
 # RUN PKG_CONFIG_PATH="/root/onig-install/lib/pkgconfig:/root/openssl-install/lib/pkgconfig:/root/curl-install/lib/pkgconfig" \
 RUN PKG_CONFIG_PATH="/root/libzip-install/lib/pkgconfig:/root/onig-install/lib/pkgconfig:/root/openssl-install/lib/pkgconfig:/root/curl-install/lib/pkgconfig" \
