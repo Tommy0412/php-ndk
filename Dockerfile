@@ -204,7 +204,6 @@ RUN PKG_CONFIG_PATH="/root/libzip-install/lib/pkgconfig:/root/onig-install/lib/p
     --disable-xmlreader \
     --disable-xmlwriter \
     --disable-posix \
-    --disable-random \
     --without-pear \
     --without-libxml \
     --disable-phar \
@@ -256,7 +255,7 @@ RUN cp /root/curl-install/lib/libcurl.so /root/install/
 # RUN cp /root/openssl-install/lib/libssl.so.1.1 /root/install/
 # RUN cp /root/openssl-install/lib/libcrypto.so.1.1 /root/install/
 
-RUN readelf -d /root/install/libphp.so | grep NEEDED
+# RUN readelf -d /root/install/libphp.so | grep NEEDED
 RUN nm -D /root/php-android-output/lib/libphp.so | grep zif_gethostname
 
 # --- FINAL STAGE ---
