@@ -6,6 +6,8 @@
 +#include "php_ini.h"
 +#include "ext/standard/php_dns.h"
 +
++/* Stub DNS functions for Android */
++
 +PHP_FUNCTION(gethostbyname)
 +{
 +    RETURN_FALSE;
@@ -16,5 +18,40 @@
 +    RETURN_FALSE;
 +}
 +
-+// add stubs for any other DNS functions that might be compiled
++PHP_FUNCTION(gethostbyaddr)
++{
++    RETURN_FALSE;
++}
++
++PHP_FUNCTION(dns_get_record)
++{
++    RETURN_FALSE;
++}
++
++PHP_FUNCTION(checkdnsrr)
++{
++    RETURN_FALSE;
++}
++
++PHP_FUNCTION(getmxrr)
++{
++    RETURN_FALSE;
++}
++
++PHP_FUNCTION(ip2long)
++{
++    RETURN_FALSE;
++}
++
++PHP_FUNCTION(long2ip)
++{
++    RETURN_FALSE;
++}
++
++PHP_FUNCTION(intval)
++{
++    RETURN_FALSE;
++}
++
++/* If PHP defines other internal DNS helpers, you can stub them here */
 +#endif
