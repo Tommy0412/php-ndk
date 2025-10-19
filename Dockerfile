@@ -168,31 +168,6 @@ RUN sed -i 's/r = posix_spawn_file_actions_addchdir_np(&factions, cwd);/r = -1; 
 # syslog patch
 RUN sed -i 's/#define syslog std_syslog/#ifdef __ANDROID__\n#define syslog(...)\n#else\n#define syslog std_syslog\n#endif/' main/php_syslog.c
 
-# --- CRITICAL FIX PART 2: C Stub for gethostname linker error ---
-# Patch basic_functions.c to define the C function 'gethostname' locally for Android.
-# This uses the robust cat/mv method to guarantee the patch is prepended.
-# FIX: Using explicit absolute paths to avoid the 'nonexistent directory' error caused by shell context issues.
-RUN ( \
-    echo '#include <string.h>'; \
-    echo ''; \
-    echo '#ifndef PHP_ANDROID_GETHOSTNAME_STUB'; \
-    echo '#define PHP_ANDROID_GETHOSTNAME_STUB'; \
-    echo '#ifdef __ANDROID__'; \
-    echo '/* Local stub to prevent linker error. Android hostnames are generic anyway. */'; \
-    echo 'int gethostname(char *name, size_t len)'; \
-    echo '{'; \
-    echo '    strncpy(name, "localhost", len);'; \
-    echo "    name[len-1] = '\\0';"; \
-    echo '    return 0;'; \
-    echo '}'; \
-    echo '#endif'; \
-    echo '#endif'; \
-    echo ''; \
-) > /tmp/gethostname_stub.c && \
-    cat /tmp/gethostname_stub.c /root/php-${PHP_VERSION}/ext/standard/basic_functions.c > /root/php-${PHP_VERSION}/ext/standard/basic_functions.c.new && \
-    mv /root/php-${PHP_VERSION}/ext/standard/basic_functions.c.new /root/php-${PHP_VERSION}/ext/standard/basic_functions.c && \
-    rm /tmp/gethostname_stub.c
-
 # Prepare build directories
 WORKDIR /root
 RUN mkdir -p build install
@@ -274,6 +249,13 @@ RUN find ../php-${PHP_VERSION} -name "*.c" -o -name "*.h" | xargs grep -l "zif_g
 
 RUN echo "=== Checking PHP function table ==="
 RUN find ../php-${PHP_VERSION} -name "*.c" | xargs grep -n "gethostname" 2>/dev/null | head -20 || echo "No gethostname references found" 
+
+# Check which extensions are configured
+RUN echo "=== Checking configured extensions ==="
+RUN ../php-${PHP_VERSION}/configure --help | grep -i enable || echo "Cannot run configure --help"
+
+RUN echo "=== Checking if standard extension is enabled ==="  
+RUN grep -r "standard" ../php-${PHP_VERSION}/ext/ || echo "No standard extension found"
 
 # Build and install PHP with embed SAPI
 # RUN make -j7 && make install
