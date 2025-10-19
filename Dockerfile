@@ -261,9 +261,8 @@ RUN PKG_CONFIG_PATH="/root/libzip-install/lib/pkgconfig:/root/onig-install/lib/p
          -L${SYSROOT}/usr/lib/${TARGET}/${API} \
          -lc -ldl -llog -latomic"
 
-# --- PHP PATCH CONFIG.H (Step 2: Apply config.h fix) ---
 # Separate RUN block ensures config.h is fully created before sed runs.
-RUN sed -i 's/\/\* #undef HAVE_GETHOSTNAME \*\//#define HAVE_GETHOSTNAME 1/g' config.h
+RUN sed -i 's/\/\* #undef HAVE_GETHOSTNAME \*\//#define HAVE_GETHOSTNAME 1/g' /root/build/config.h
 
 # Download missing Android DNS headers
 RUN for hdr in resolv_params.h resolv_private.h resolv_static.h resolv_stats.h; do \
