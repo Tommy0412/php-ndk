@@ -245,7 +245,7 @@ RUN for hdr in resolv_params.h resolv_private.h resolv_static.h resolv_stats.h; 
     done
 
 # Build and install PHP with embed SAPI
-# RUN make -j7 && make install
+RUN make -j7 && make install
 
 # Copy the compiled libraries
 RUN cp /root/onig-install/lib/libonig.so /root/install/
