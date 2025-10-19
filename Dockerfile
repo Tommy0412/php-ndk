@@ -264,7 +264,27 @@ RUN ${CC} -c -fPIC android_compat.c -o android_compat.o
 
 # Build and install PHP with embed SAPI
 # RUN make -j7 && make install
-RUN make -j7 EXTRA_LIBS="/root/build/android_compat.o" && make install
+# Build PHP first without installing
+RUN make -j7
+
+# Manually create libphp.so with our compat object
+RUN find /root/build -name "*.o" > all_objects.txt
+RUN ${CC} -shared -fPIC -o libs/libphp.so \
+    $(find /root/build -name "*.o" | grep -v 'android_compat') \
+    /root/build/android_compat.o \
+    -Wl,--whole-archive \
+    /root/openssl-install/lib/libssl.a \
+    /root/openssl-install/lib/libcrypto.a \
+    -Wl,--no-whole-archive \
+    -L/root/sqlite-amalgamation-${SQLITE3_VERSION} \
+    -L/root/curl-install/lib \
+    -L/root/onig-install/lib \
+    -L/root/libzip-install/lib \
+    -L${SYSROOT}/usr/lib/${TARGET}/${API} \
+    -lcurl -lonig -lzip -lsqlite3 -lc -ldl -llog -latomic
+
+# Then install
+RUN make install
 
 # Copy the compiled libraries
 RUN cp /root/onig-install/lib/libonig.so /root/install/
