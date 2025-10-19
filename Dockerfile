@@ -170,21 +170,23 @@ RUN sed -i 's/#define syslog std_syslog/#ifdef __ANDROID__\n#define syslog(...)\
 
 # --- CRITICAL FIX for 'U zif_gethostname' ---
 # Patch basic_functions.c to define the C function 'gethostname' locally for Android.
-# This prevents the linker from marking 'zif_gethostname' as undefined (U) and requiring
-# an external symbol from the Bionic C library that it can't resolve correctly.
+# Inserted at the top of the file with appropriate guards to avoid redefinition and C syntax errors.
 RUN sed -i '1i#include <string.h>' ext/standard/basic_functions.c && \
     ( \
+        echo '#ifndef PHP_ANDROID_GETHOSTNAME_STUB'; \
+        echo '#define PHP_ANDROID_GETHOSTNAME_STUB'; \
         echo '#ifdef __ANDROID__'; \
         echo '/* Local stub to prevent linker error. Android hostnames are generic anyway. */'; \
         echo 'int gethostname(char *name, size_t len)'; \
         echo '{'; \
         echo '    strncpy(name, "localhost", len);'; \
-        echo '    name[len-1] = '\''\\0'\'';'; \
+        echo "    name[len-1] = '\\0';"; /* CORRECTED C-style escaping */ \
         echo '    return 0;'; \
         echo '}'; \
         echo '#endif'; \
+        echo '#endif'; \
     ) > /tmp/gethostname_stub.c && \
-    sed -i '/^#ifndef PHP_WIN32$/r /tmp/gethostname_stub.c' ext/standard/basic_functions.c && \
+    sed -i '2r /tmp/gethostname_stub.c' ext/standard/basic_functions.c && \
     rm /tmp/gethostname_stub.c
 
 # Prepare build directories
