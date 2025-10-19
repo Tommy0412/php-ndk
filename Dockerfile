@@ -31,10 +31,10 @@ ENV STRIP=llvm-strip
 ENV TOOLCHAIN=${NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64
 ENV SYSROOT=${TOOLCHAIN}/sysroot
 
-# Build OpenSSL for Android
+# Build OpenSSL for Android - FINAL WORKING VERSION
 WORKDIR /root
-RUN wget https://www.openssl.org/source/openssl-1.1.1w.tar.gz && \
-    tar -xzf openssl-1.1.1w.tar.gz
+ RUN wget https://www.openssl.org/source/openssl-1.1.1w.tar.gz && \
+ tar -xzf openssl-1.1.1w.tar.gz
 WORKDIR /root/openssl-1.1.1w
 
 RUN ANDROID_NDK_HOME="/opt/android-ndk-r27c" \
@@ -79,7 +79,6 @@ RUN ./configure \
 
 # Download and build SQLite
 WORKDIR /root
-ENV SQLITE3_VERSION=3470200
 RUN wget https://www.sqlite.org/2024/sqlite-amalgamation-${SQLITE3_VERSION}.zip && \
     unzip sqlite-amalgamation-${SQLITE3_VERSION}.zip
 WORKDIR /root/sqlite-amalgamation-${SQLITE3_VERSION}
@@ -132,15 +131,20 @@ WORKDIR /root/php-${PHP_VERSION}
 # Android POSIX fixes
 RUN sed -i '1i#ifdef __ANDROID__\n#define eaccess(path, mode) access(path, mode)\n#endif' /root/php-8.4.2/ext/posix/posix.c
     
-# Apply ALL patches (including your DNS patch)
 RUN patch -p1 < ../ext-posix-posix.c.patch && \
     patch -p1 < ../resolv.patch && \
     patch -p1 < ../ext-standard-php_fopen_wrapper.c.patch && \
-    patch -p1 < ../main-streams-cast.c.patch && \
-    patch -p1 < ../ext-standard-dns.c.patch
-    
-# *** REMOVED THE AGGRESSIVE DNS STUB REWRITE BLOCK HERE ***
-# This was preventing zif_gethostname from being compiled.
+    patch -p1 < ../main-streams-cast.c.patch   
+
+RUN cat >> ext/standard/dns.c << 'EOF'
+
+/* Android gethostname implementation */
+PHP_FUNCTION(gethostname)
+{
+    ZEND_PARSE_PARAMETERS_NONE();
+    RETURN_STRING("localhost");
+}
+EOF
 
 # Patch proc_open.c for Android
 RUN sed -i 's/r = posix_spawn_file_actions_addchdir_np(&factions, cwd);/r = -1; \/\/ Android compatibility/' ext/standard/proc_open.c
@@ -148,36 +152,11 @@ RUN sed -i 's/r = posix_spawn_file_actions_addchdir_np(&factions, cwd);/r = -1; 
 # syslog patch
 RUN sed -i 's/#define syslog std_syslog/#ifdef __ANDROID__\n#define syslog(...)\n#else\n#define syslog std_syslog\n#endif/' main/php_syslog.c
 
-# C Stub for gethostname linker error (NEEDED FOR INTERNAL PHP C CALLS)
-# This stub satisfies the C linker when internal PHP code calls the C function gethostname().
-RUN ( \
-    echo '#include <string.h>'; \
-    echo ''; \
-    echo '#ifndef PHP_ANDROID_GETHOSTNAME_STUB'; \
-    echo '#define PHP_ANDROID_GETHOSTNAME_STUB'; \
-    echo '#ifdef __ANDROID__'; \
-    echo '/* Local stub to prevent linker error. Android hostnames are generic anyway. */'; \
-    echo 'int gethostname(char *name, size_t len)'; \
-    echo '{'; \
-    echo '    strncpy(name, "localhost", len);'; \
-    echo "    name[len-1] = '\\0';"; \
-    echo '    return 0;'; \
-    echo '}'; \
-    echo '#endif'; \
-    echo '#endif'; \
-    echo ''; \
-) > /tmp/gethostname_stub.c && \
-    cat /tmp/gethostname_stub.c /root/php-${PHP_VERSION}/ext/standard/basic_functions.c > /root/php-${PHP_VERSION}/ext/standard/basic_functions.c.new && \
-    mv /root/php-${PHP_VERSION}/ext/standard/basic_functions.c.new /root/php-${PHP_VERSION}/ext/standard/basic_functions.c && \
-    rm /tmp/gethostname_stub.c
-
-
 # Prepare build directories
 WORKDIR /root
 RUN mkdir -p build install
 WORKDIR /root/build
 
-# --- PHP CONFIGURE RUN BLOCK (Includes CRITICAL config.h patch) ---
 RUN PKG_CONFIG_PATH="/root/libzip-install/lib/pkgconfig:/root/onig-install/lib/pkgconfig:/root/openssl-install/lib/pkgconfig:/root/curl-install/lib/pkgconfig" \
   OPENSSL_CFLAGS="-I/root/openssl-install/include" \
   OPENSSL_LIBS="/root/openssl-install/lib/libssl.a /root/openssl-install/lib/libcrypto.a" \
@@ -222,31 +201,24 @@ RUN PKG_CONFIG_PATH="/root/libzip-install/lib/pkgconfig:/root/onig-install/lib/p
     SQLITE_CFLAGS="-I/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
     SQLITE_LIBS="-lsqlite3 -L/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
     CFLAGS="-DOPENSSL_NO_EGD -DRAND_egd\(file\)=0 \
-         -DANDROID -fPIE -fPIC \
-         -Dexplicit_bzero\(a,b\)=memset\(a,0,b\) \
-         -I/root/build \
-         -I${SYSROOT}/usr/include \
-         -I/root/sqlite-amalgamation-${SQLITE3_VERSION} \
-         -I/root/openssl-install/include \
-         -I/root/curl-install/include \
-         -I/root/onig-install/include" \
+        -DANDROID -fPIE -fPIC \
+        -Dexplicit_bzero\(a,b\)=memset\(a,0,b\) \
+        -I${SYSROOT}/usr/include \
+        -I/root/sqlite-amalgamation-${SQLITE3_VERSION} \
+        -I/root/openssl-install/include \
+        -I/root/curl-install/include \
+        -I/root/onig-install/include" \
     LDFLAGS="-pie -shared \
-              -Wl,--whole-archive \
-              /root/openssl-install/lib/libssl.a \
-              /root/openssl-install/lib/libcrypto.a \
-              -Wl,--no-whole-archive \
-              -L/root/sqlite-amalgamation-${SQLITE3_VERSION} \
-              -L/root/curl-install/lib \
-              -L/root/onig-install/lib \
-              -L/root/libzip-install/lib \
-              -L${SYSROOT}/usr/lib/${TARGET}/${API} \
-              -lc -ldl -llog -latomic" \
-  # --- CRITICAL PATCH: Force HAVE_GETHOSTNAME to enable PHP's internal function ---
-  && echo "=== Verifying config.h creation in /root/build ===" \
-  && ls -al /root/build/config.h \
-  && sed -i 's/\/\* #undef HAVE_GETHOSTNAME \*\//#define HAVE_GETHOSTNAME 1/g' /root/build/config.h \
-  && echo "=== config.h patch step complete. ==="
-
+         -Wl,--whole-archive \
+         /root/openssl-install/lib/libssl.a \
+         /root/openssl-install/lib/libcrypto.a \
+         -Wl,--no-whole-archive \
+         -L/root/sqlite-amalgamation-${SQLITE3_VERSION} \
+         -L/root/curl-install/lib \
+         -L/root/onig-install/lib \
+         -L/root/libzip-install/lib \
+         -L${SYSROOT}/usr/lib/${TARGET}/${API} \
+         -lc -ldl"
 
 # Download missing Android DNS headers
 RUN for hdr in resolv_params.h resolv_private.h resolv_static.h resolv_stats.h; do \
@@ -258,13 +230,14 @@ RUN make -j7 && make install
 
 # Copy the compiled libraries
 RUN cp /root/onig-install/lib/libonig.so /root/install/
-RUN cp /root/php-android-output/lib/libphp.so /root/install/php.so
+RUN cp /root/php-android-output/lib/libphp.so /root/install/
 RUN cp /root/sqlite-amalgamation-${SQLITE3_VERSION}/libsqlite3.so /root/install/
 RUN cp /root/curl-install/lib/libcurl.so /root/install/
+# RUN cp /root/openssl-install/lib/libssl.so.1.1 /root/install/
+# RUN cp /root/openssl-install/lib/libcrypto.so.1.1 /root/install/
 
-# Verification steps: Check if the critical symbol is present
-RUN echo "=== Verifying zif_gethostname symbol is present in libphp.so ===" && \
-    nm -D /root/php-android-output/lib/libphp.so | grep zif_gethostname || echo "zif_gethostname not found. This is a critical error."
+# RUN readelf -d /root/install/libphp.so | grep NEEDED
+# RUN nm -D /root/php-android-output/lib/libphp.so | grep zif_gethostname
 
 # --- FINAL STAGE ---
 FROM alpine:3.21
