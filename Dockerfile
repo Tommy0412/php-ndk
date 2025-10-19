@@ -136,13 +136,40 @@ RUN patch -p1 < ../ext-posix-posix.c.patch && \
     patch -p1 < ../ext-standard-php_fopen_wrapper.c.patch && \
     patch -p1 < ../main-streams-cast.c.patch   
 
-RUN echo '' >> ext/standard/dns.c
-RUN echo '/* Android gethostname implementation */' >> ext/standard/dns.c
-RUN echo 'PHP_FUNCTION(gethostname)' >> ext/standard/dns.c
-RUN echo '{' >> ext/standard/dns.c
-RUN echo '    ZEND_PARSE_PARAMETERS_NONE();' >> ext/standard/dns.c
-RUN echo '    RETURN_STRING("localhost");' >> ext/standard/dns.c
-RUN echo '}' >> ext/standard/dns.c
+# Apply Android DNS stub properly
+RUN cat > /root/dns_stub.patch << 'PATCH_EOF'
+--- a/ext/standard/dns.c
++++ b/ext/standard/dns.c
+@@ -1,3 +1,24 @@
++#ifdef __ANDROID__
++#include <sys/socket.h>
++#include <netinet/in.h>
++#include <sys/types.h>
++
++typedef void* dns_handle_t;
++static inline dns_handle_t dns_open(const char *nameserver) { return NULL; }
++static inline void dns_free(dns_handle_t handle) {}
++static inline int dns_search(dns_handle_t handle, const char *dname, int class, int type,
++    unsigned char *answer, int anslen, struct sockaddr *from, socklen_t *fromsize) {
++    return -1;
++}
++
++/* Android gethostname implementation */
++PHP_FUNCTION(gethostname)
++{
++    ZEND_PARSE_PARAMETERS_NONE();
++    RETURN_STRING("localhost");
++}
++#else
++
+ /* Original dns.c content continues... */
+PATCH_EOF
+
+# Apply the patch
+RUN patch -p1 < /root/dns_stub.patch
+
+# Add the closing #endif at the end of dns.c
+RUN echo '#endif /* __ANDROID__ */' >> ext/standard/dns.c
 
 # Patch proc_open.c for Android
 RUN sed -i 's/r = posix_spawn_file_actions_addchdir_np(&factions, cwd);/r = -1; \/\/ Android compatibility/' ext/standard/proc_open.c
