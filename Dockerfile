@@ -136,15 +136,13 @@ RUN patch -p1 < ../ext-posix-posix.c.patch && \
     patch -p1 < ../ext-standard-php_fopen_wrapper.c.patch && \
     patch -p1 < ../main-streams-cast.c.patch   
 
-RUN cat >> ext/standard/dns.c << 'EOF'
-
-/* Android gethostname implementation */
-PHP_FUNCTION(gethostname)
-{
-    ZEND_PARSE_PARAMETERS_NONE();
-    RETURN_STRING("localhost");
-}
-EOF
+RUN echo '' >> ext/standard/dns.c
+RUN echo '/* Android gethostname implementation */' >> ext/standard/dns.c
+RUN echo 'PHP_FUNCTION(gethostname)' >> ext/standard/dns.c
+RUN echo '{' >> ext/standard/dns.c
+RUN echo '    ZEND_PARSE_PARAMETERS_NONE();' >> ext/standard/dns.c
+RUN echo '    RETURN_STRING("localhost");' >> ext/standard/dns.c
+RUN echo '}' >> ext/standard/dns.c
 
 # Patch proc_open.c for Android
 RUN sed -i 's/r = posix_spawn_file_actions_addchdir_np(&factions, cwd);/r = -1; \/\/ Android compatibility/' ext/standard/proc_open.c
