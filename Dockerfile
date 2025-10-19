@@ -172,6 +172,24 @@ RUN sed -i 's/#define syslog std_syslog/#ifdef __ANDROID__\n#define syslog(...)\
 WORKDIR /root
 RUN mkdir -p build install
 WORKDIR /root/build
+# Create android_compat.c
+RUN cat > /root/build/android_compat.c << 'EOF'
+#include <string.h>
+#include <unistd.h>
+
+int gethostname(char *name, size_t len) {
+    const char* hostname = "android";
+    if (name && len > 0) {
+        size_t i;
+        for (i = 0; i < len - 1 && hostname[i] != '\0'; i++) {
+            name[i] = hostname[i];
+        }
+        name[i] = '\0';
+        return 0;
+    }
+    return -1;
+}
+EOF
 
 # RUN PKG_CONFIG_PATH="/root/onig-install/lib/pkgconfig:/root/openssl-install/lib/pkgconfig:/root/curl-install/lib/pkgconfig" \
 RUN PKG_CONFIG_PATH="/root/libzip-install/lib/pkgconfig:/root/onig-install/lib/pkgconfig:/root/openssl-install/lib/pkgconfig:/root/curl-install/lib/pkgconfig" \
@@ -219,7 +237,6 @@ RUN PKG_CONFIG_PATH="/root/libzip-install/lib/pkgconfig:/root/onig-install/lib/p
     CFLAGS="-DOPENSSL_NO_EGD -DRAND_egd\(file\)=0 \
         -DANDROID -fPIE -fPIC \
         -Dexplicit_bzero\(a,b\)=memset\(a,0,b\) \
-        -Dgethostname\(a,b\)=\(strncpy\(a,\"android\",b\),a\[b-1\]='\\0',0\) \
         -I${SYSROOT}/usr/include \
         -I/root/sqlite-amalgamation-${SQLITE3_VERSION} \
         -I/root/openssl-install/include \
@@ -242,8 +259,12 @@ RUN for hdr in resolv_params.h resolv_private.h resolv_static.h resolv_stats.h; 
       curl https://android.googlesource.com/platform/bionic/+/refs/heads/android12--mainline-release/libc/dns/include/$hdr?format=TEXT | base64 -d > $hdr; \
     done
 
+# Compile it first
+RUN ${CC} -c -fPIC android_compat.c -o android_compat.o    
+
 # Build and install PHP with embed SAPI
-RUN make -j7 && make install
+# RUN make -j7 && make install
+RUN make -j7 EXTRA_LIBS="/root/build/android_compat.o" && make install
 
 # Copy the compiled libraries
 RUN cp /root/onig-install/lib/libonig.so /root/install/
