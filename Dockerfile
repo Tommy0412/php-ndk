@@ -176,7 +176,6 @@ WORKDIR /root
 RUN mkdir -p build install
 WORKDIR /root/build
 
-# RUN PKG_CONFIG_PATH="/root/onig-install/lib/pkgconfig:/root/openssl-install/lib/pkgconfig:/root/curl-install/lib/pkgconfig" \
 RUN PKG_CONFIG_PATH="/root/libzip-install/lib/pkgconfig:/root/onig-install/lib/pkgconfig:/root/openssl-install/lib/pkgconfig:/root/curl-install/lib/pkgconfig" \
   OPENSSL_CFLAGS="-I/root/openssl-install/include" \
   OPENSSL_LIBS="/root/openssl-install/lib/libssl.a /root/openssl-install/lib/libcrypto.a" \
@@ -186,6 +185,7 @@ RUN PKG_CONFIG_PATH="/root/libzip-install/lib/pkgconfig:/root/onig-install/lib/p
   ONIG_LIBS="-L/root/onig-install/lib -lonig" \
   LIBZIP_CFLAGS="-I/root/libzip-install/include" \
   LIBZIP_LIBS="-L/root/libzip-install/lib -lzip" \
+  ac_cv_func_gethostname=no \
   ../php-${PHP_VERSION}/configure \
     --host=${TARGET} \
     --prefix=/root/php-android-output \
