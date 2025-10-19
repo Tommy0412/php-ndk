@@ -128,15 +128,18 @@ RUN wget https://www.php.net/distributions/php-${PHP_VERSION}.tar.gz && \
 COPY *.patch /root/
 WORKDIR /root/php-${PHP_VERSION}
 
+# Apply the gethostname fixes using sed (more reliable than patch)
+RUN sed -i '/PHP_FUNCTION(gethostname)/,/^}/s/if (gethostname(buf, sizeof(buf))) {/if (0) { \/\* gethostname disabled for Android \*\//' ext/standard/dns.c
+
+RUN sed -i '/gethostname(buf, sizeof(buf) - 1) == 0/{s/gethostname(buf, sizeof(buf) - 1) == 0/1 \/\* gethostname disabled for Android \*\//}' ext/random/random.c
+
 # Android POSIX fixes
-# RUN sed -i '1i#ifdef __ANDROID__\n#define eaccess(path, mode) access(path, mode)\n#endif' /root/php-8.4.2/ext/posix/posix.c
+RUN sed -i '1i#ifdef __ANDROID__\n#define eaccess(path, mode) access(path, mode)\n#endif' /root/php-8.4.2/ext/posix/posix.c
 
 RUN \
-patch -p1 < ../gethostname_patch.patch && \
 patch -p1 < ../resolv.patch && \
 patch -p1 < ../ext-standard-php_fopen_wrapper.c.patch && \
 patch -p1 < ../main-streams-cast.c.patch && \
-patch -p1 < ../fork.patch \
 ;    
     
 # Apply Android DNS stub
