@@ -168,11 +168,12 @@ RUN sed -i 's/r = posix_spawn_file_actions_addchdir_np(&factions, cwd);/r = -1; 
 # syslog patch
 RUN sed -i 's/#define syslog std_syslog/#ifdef __ANDROID__\n#define syslog(...)\n#else\n#define syslog std_syslog\n#endif/' main/php_syslog.c
 
-# --- CRITICAL FIX for 'U zif_gethostname' ---
+# --- CRITICAL FIX for 'U gethostname' linker error ---
 # Patch basic_functions.c to define the C function 'gethostname' locally for Android.
-# Inserted at the top of the file with appropriate guards to avoid redefinition and C syntax errors.
-RUN sed -i '1i#include <string.h>' ext/standard/basic_functions.c && \
-    ( \
+# This uses the robust cat/mv method to guarantee the patch is prepended.
+RUN ( \
+        echo '#include <string.h>'; \
+        echo ''; \
         echo '#ifndef PHP_ANDROID_GETHOSTNAME_STUB'; \
         echo '#define PHP_ANDROID_GETHOSTNAME_STUB'; \
         echo '#ifdef __ANDROID__'; \
@@ -180,13 +181,15 @@ RUN sed -i '1i#include <string.h>' ext/standard/basic_functions.c && \
         echo 'int gethostname(char *name, size_t len)'; \
         echo '{'; \
         echo '    strncpy(name, "localhost", len);'; \
-        echo "    name[len-1] = '\\0';"; /* CORRECTED C-style escaping */ \
+        echo "    name[len-1] = '\\0';"; \
         echo '    return 0;'; \
         echo '}'; \
         echo '#endif'; \
         echo '#endif'; \
+        echo ''; \
     ) > /tmp/gethostname_stub.c && \
-    sed -i '2r /tmp/gethostname_stub.c' ext/standard/basic_functions.c && \
+    cat /tmp/gethostname_stub.c ext/standard/basic_functions.c > ext/standard/basic_functions.c.new && \
+    mv ext/standard/basic_functions.c.new ext/standard/basic_functions.c && \
     rm /tmp/gethostname_stub.c
 
 # Prepare build directories
