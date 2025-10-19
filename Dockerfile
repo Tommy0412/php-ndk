@@ -129,7 +129,7 @@ COPY *.patch /root/
 WORKDIR /root/php-${PHP_VERSION}
 
 # Android POSIX fixes
-RUN sed -i '1i#ifdef __ANDROID__\n#define eaccess(path, mode) access(path, mode)\n#endif' /root/php-8.4.2/ext/posix/posix.c
+# RUN sed -i '1i#ifdef __ANDROID__\n#define eaccess(path, mode) access(path, mode)\n#endif' /root/php-8.4.2/ext/posix/posix.c
 
 RUN \
 patch -p1 < ../resolv.patch && \
@@ -238,7 +238,7 @@ RUN PKG_CONFIG_PATH="/root/libzip-install/lib/pkgconfig:/root/onig-install/lib/p
          -L/root/onig-install/lib \
          -L/root/libzip-install/lib \
          -L${SYSROOT}/usr/lib/${TARGET}/${API} \
-         -lc -ldl"
+         -lc -ldl -llog -latomic"
 
 
 # Download missing Android DNS headers
