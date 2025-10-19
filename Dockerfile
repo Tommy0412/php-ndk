@@ -173,7 +173,19 @@ RUN sed -i 's/#define syslog std_syslog/#ifdef __ANDROID__\n#define syslog(...)\
 # This prevents the linker from marking 'zif_gethostname' as undefined (U) and requiring
 # an external symbol from the Bionic C library that it can't resolve correctly.
 RUN sed -i '1i#include <string.h>' ext/standard/basic_functions.c && \
-    sed -i '/^#ifndef PHP_WIN32$/i#ifdef __ANDROID__\\n\/* Local stub to prevent linker error. Android hostnames are generic anyway. *\/\\nint gethostname(char *name, size_t len)\\n{\\n    strncpy(name, "localhost", len);\\n    name[len-1] = '\''\\0'\'';\\n    return 0;\\n}\\n#endif\\n' ext/standard/basic_functions.c
+    ( \
+        echo '#ifdef __ANDROID__'; \
+        echo '/* Local stub to prevent linker error. Android hostnames are generic anyway. */'; \
+        echo 'int gethostname(char *name, size_t len)'; \
+        echo '{'; \
+        echo '    strncpy(name, "localhost", len);'; \
+        echo '    name[len-1] = '\''\\0'\'';'; \
+        echo '    return 0;'; \
+        echo '}'; \
+        echo '#endif'; \
+    ) > /tmp/gethostname_stub.c && \
+    sed -i '/^#ifndef PHP_WIN32$/r /tmp/gethostname_stub.c' ext/standard/basic_functions.c && \
+    rm /tmp/gethostname_stub.c
 
 # Prepare build directories
 WORKDIR /root
