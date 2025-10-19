@@ -253,6 +253,12 @@ RUN cp /root/curl-install/lib/libcurl.so /root/install/
 # RUN readelf -d /root/install/libphp.so | grep NEEDED
 # RUN nm -D /root/php-android-output/lib/libphp.so | grep zif_gethostname
 
+# Find all references to gethostname in the source
+RUN grep -r "PHP_FE.*gethostname" ../php-${PHP_VERSION}/ext/
+
+# If it's registered but not implemented, either remove the registration or add implementation
+RUN sed -i 's/PHP_FE(gethostname,.*)/\/\/ PHP_FE(gethostname, arginfo_gethostname)/' ext/standard/basic_functions.c
+
 # --- FINAL STAGE ---
 FROM alpine:3.21
 
