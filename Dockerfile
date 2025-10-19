@@ -172,24 +172,24 @@ RUN sed -i 's/#define syslog std_syslog/#ifdef __ANDROID__\n#define syslog(...)\
 WORKDIR /root
 RUN mkdir -p build install
 WORKDIR /root/build
-# Create android_compat.c
-RUN cat > /root/build/android_compat.c << 'EOF'
-#include <string.h>
-#include <unistd.h>
 
-int gethostname(char *name, size_t len) {
-    const char* hostname = "android";
-    if (name && len > 0) {
-        size_t i;
-        for (i = 0; i < len - 1 && hostname[i] != '\0'; i++) {
-            name[i] = hostname[i];
-        }
-        name[i] = '\0';
-        return 0;
-    }
-    return -1;
-}
-EOF
+# Create android_compat.c
+# Create the file step by step
+RUN echo '#include <string.h>' > /root/build/android_compat.c
+RUN echo '#include <unistd.h>' >> /root/build/android_compat.c
+RUN echo '' >> /root/build/android_compat.c
+RUN echo 'int gethostname(char *name, size_t len) {' >> /root/build/android_compat.c
+RUN echo '    const char* hostname = "android";' >> /root/build/android_compat.c
+RUN echo '    if (name && len > 0) {' >> /root/build/android_compat.c
+RUN echo '        size_t i;' >> /root/build/android_compat.c
+RUN echo '        for (i = 0; i < len - 1 && hostname[i] != '\''\\0'\''; i++) {' >> /root/build/android_compat.c
+RUN echo '            name[i] = hostname[i];' >> /root/build/android_compat.c
+RUN echo '        }' >> /root/build/android_compat.c
+RUN echo '        name[i] = '\''\\0'\'';' >> /root/build/android_compat.c
+RUN echo '        return 0;' >> /root/build/android_compat.c
+RUN echo '    }' >> /root/build/android_compat.c
+RUN echo '    return -1;' >> /root/build/android_compat.c
+RUN echo '}' >> /root/build/android_compat.c
 
 # RUN PKG_CONFIG_PATH="/root/onig-install/lib/pkgconfig:/root/openssl-install/lib/pkgconfig:/root/curl-install/lib/pkgconfig" \
 RUN PKG_CONFIG_PATH="/root/libzip-install/lib/pkgconfig:/root/onig-install/lib/pkgconfig:/root/openssl-install/lib/pkgconfig:/root/curl-install/lib/pkgconfig" \
