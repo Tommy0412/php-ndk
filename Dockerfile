@@ -127,11 +127,6 @@ RUN wget https://www.php.net/distributions/php-${PHP_VERSION}.tar.gz && \
 # Apply patches
 COPY *.patch /root/
 WORKDIR /root/php-${PHP_VERSION}
-# First, let's see what calls zif_gethostname
-RUN grep -r "zif_gethostname" ../php-${PHP_VERSION}/
-
-# Check which extension uses it
-RUN grep -r "gethostname" ../php-${PHP_VERSION}/ext/
 
 # Android POSIX fixes
 # RUN sed -i '1i#ifdef __ANDROID__\n#define eaccess(path, mode) access(path, mode)\n#endif' /root/php-8.4.2/ext/posix/posix.c
