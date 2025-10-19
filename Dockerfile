@@ -130,14 +130,43 @@ WORKDIR /root/php-${PHP_VERSION}
 
 # Android POSIX fixes
 RUN sed -i '1i#ifdef __ANDROID__\n#define eaccess(path, mode) access(path, mode)\n#endif' /root/php-8.4.2/ext/posix/posix.c
+RUN cat >> /root/php-${PHP_VERSION}/ext/standard/php_dns.h <<'EOF'
+#ifdef __ANDROID__
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <sys/types.h>
 
-RUN echo 'typedef void* dns_handle_t; \
-int dns_search(...) { return -1; } \
-int dns_open(...) { return 0; } \
-void dns_free(...) {}' >> /root/php-${PHP_VERSION}/ext/standard/php_dns.h
+typedef void* dns_handle_t;
+
+static inline int dns_search(dns_handle_t handle, const char *dname, int class_, int type,
+                             unsigned char *answer, int anslen,
+                             struct sockaddr *from, socklen_t *fromsize)
+{
+    (void)handle;
+    (void)dname;
+    (void)class_;
+    (void)type;
+    (void)answer;
+    (void)anslen;
+    (void)from;
+    (void)fromsize;
+    return -1; // disable DNS
+}
+
+static inline int dns_open(const char *nameserver)
+{
+    (void)nameserver;
+    return 0;
+}
+
+static inline void dns_free(dns_handle_t handle)
+{
+    (void)handle;
+}
+#endif
+EOF
     
-RUN patch -p1 < ../ext-standard-dns.c.patch && \
-    patch -p1 < ../ext-posix-posix.c.patch && \
+RUN patch -p1 < ../ext-posix-posix.c.patch && \
     patch -p1 < ../resolv.patch && \
     patch -p1 < ../ext-standard-php_fopen_wrapper.c.patch && \
     patch -p1 < ../main-streams-cast.c.patch   
