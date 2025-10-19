@@ -128,11 +128,6 @@ RUN wget https://www.php.net/distributions/php-${PHP_VERSION}.tar.gz && \
 COPY *.patch /root/
 WORKDIR /root/php-${PHP_VERSION}
 
-# Apply the gethostname fixes using sed (more reliable than patch)
-RUN sed -i '/PHP_FUNCTION(gethostname)/,/^}/s/if (gethostname(buf, sizeof(buf))) {/if (0) { \/\* gethostname disabled for Android \*\//' ext/standard/dns.c
-
-RUN sed -i '/gethostname(buf, sizeof(buf) - 1) == 0/{s/gethostname(buf, sizeof(buf) - 1) == 0/1 \/\* gethostname disabled for Android \*\//}' ext/random/random.c
-
 # Android POSIX fixes
 RUN sed -i '1i#ifdef __ANDROID__\n#define eaccess(path, mode) access(path, mode)\n#endif' /root/php-8.4.2/ext/posix/posix.c
     
@@ -256,8 +251,7 @@ RUN cp /root/curl-install/lib/libcurl.so /root/install/
 # RUN cp /root/openssl-install/lib/libcrypto.so.1.1 /root/install/
 
 # RUN readelf -d /root/install/libphp.so | grep NEEDED
-RUN nm -D /root/php-android-output/lib/libphp.so | grep ' T ' | head -20  # Show defined functions
-RUN nm -D /root/php-android-output/lib/libphp.so | grep zif_gethostname
+# RUN nm -D /root/php-android-output/lib/libphp.so | grep zif_gethostname
 
 # --- FINAL STAGE ---
 FROM alpine:3.21
