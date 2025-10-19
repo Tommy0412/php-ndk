@@ -1,12 +1,11 @@
---- a/ext/standard/dns.c
+*** a/ext/standard/dns.c
 +++ b/ext/standard/dns.c
-@@ -1,6 +0,14 @@
+@@ -1,9999 +0,9999 @@
 +#ifdef __ANDROID__
 +#include "php.h"
 +#include "php_ini.h"
 +#include "ext/standard/php_dns.h"
 +
-+/* Stub DNS functions for Android */
 +PHP_FUNCTION(gethostbyname)
 +{
 +    RETURN_FALSE;
