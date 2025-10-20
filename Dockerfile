@@ -190,7 +190,6 @@ RUN PKG_CONFIG_PATH="/root/libzip-install/lib/pkgconfig:/root/onig-install/lib/p
     --host=${TARGET} \
     --prefix=/root/php-android-output \
     --enable-embed=shared \
-    --enable-sockets \
     --with-openssl=/root/openssl-install \
     --with-curl=/root/curl-install \
     --with-sqlite3 \
