@@ -18,7 +18,7 @@ ENV PATH="${PATH}:${NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64/bin"
 # Prepare build environment
 WORKDIR /root
 ARG TARGET=aarch64-linux-android
-ARG API=32
+ARG API=28
 ARG PHP_VERSION=8.4.2
 ENV SQLITE3_VERSION=3470200
 
@@ -186,7 +186,6 @@ RUN PKG_CONFIG_PATH="/root/libzip-install/lib/pkgconfig:/root/onig-install/lib/p
   ONIG_LIBS="-L/root/onig-install/lib -lonig" \
   LIBZIP_CFLAGS="-I/root/libzip-install/include" \
   LIBZIP_LIBS="-L/root/libzip-install/lib -lzip" \
-  ac_cv_func_gethostname=yes \
   ../php-${PHP_VERSION}/configure \
     --host=${TARGET} \
     --prefix=/root/php-android-output \
