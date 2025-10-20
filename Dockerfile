@@ -119,6 +119,28 @@ RUN mkdir build && cd build \
     && make -j7 \
     && make install
 
+# Build libxml2 for Android
+WORKDIR /root
+ENV LIBXML2_VERSION=2.9.12
+RUN wget http://xmlsoft.org/sources/libxml2-${LIBXML2_VERSION}.tar.gz && \
+    tar -xzf libxml2-${LIBXML2_VERSION}.tar.gz && \
+    rm libxml2-${LIBXML2_VERSION}.tar.gz
+
+WORKDIR /root/libxml2-${LIBXML2_VERSION}
+RUN ./configure \
+    --host=${TARGET} \
+    --prefix=/root/libxml2-install \
+    CC=${CC} \
+    CFLAGS="-fPIC" \
+    --without-iconv \
+    --without-python \
+    --without-lzma \
+    --config-cache \
+    --enable-shared=yes && \
+    --enable-static=no && \
+    make -j$(nproc) && \
+    make install
+
 # Download PHP source
 WORKDIR /root
 RUN wget https://www.php.net/distributions/php-${PHP_VERSION}.tar.gz && \
