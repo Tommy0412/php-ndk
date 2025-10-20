@@ -135,12 +135,13 @@ RUN patch -p1 < ../ext-posix-posix.c.patch && \
     patch -p1 < ../ext-standard-php_fopen_wrapper.c.patch && \
     patch -p1 < ../main-streams-cast.c.patch   
 
-# Apply DNS stub but keep gethostname available
+# Apply DNS stub safely for Android
 RUN { \
+    echo '#include "php.h"'; \
+    echo '#include "php_ini.h"'; \
+    echo '#include "ext/standard/php_dns.h"'; \
+    echo ''; \
     echo '#ifdef __ANDROID__'; \
-    echo '#include <sys/socket.h>'; \
-    echo '#include <netinet/in.h>'; \
-    echo '#include <sys/types.h>'; \
     echo ''; \
     echo 'typedef void* dns_handle_t;'; \
     echo 'static inline dns_handle_t dns_open(const char *nameserver) { return NULL; }'; \
@@ -157,7 +158,6 @@ RUN { \
     echo '    RETURN_STRING("localhost");'; \
     echo '}'; \
     echo ''; \
-    echo '/* Disable the rest of the DNS implementation on Android */'; \
     echo '#define ANDROID_DNS_STUB'; \
     echo '#endif'; \
     echo ''; \
