@@ -136,7 +136,7 @@ RUN ./configure \
     --without-python \
     --without-lzma \
     --config-cache \
-    --enable-shared=yes && \
+    --enable-shared=yes \
     --enable-static=no && \
     make -j$(nproc) && \
     make install
