@@ -31,7 +31,7 @@ ENV STRIP=llvm-strip
 ENV TOOLCHAIN=${NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64
 ENV SYSROOT=${TOOLCHAIN}/sysroot
 
-# Build OpenSSL for Android - FINAL WORKING VERSION
+# Build OpenSSL for Android
 WORKDIR /root
  RUN wget https://www.openssl.org/source/openssl-1.1.1w.tar.gz && \
  tar -xzf openssl-1.1.1w.tar.gz
@@ -131,13 +131,14 @@ RUN ./configure \
     --host=${TARGET} \
     --prefix=/root/libxml2-install \
     CC=${CC} \
-    CFLAGS="-fPIC" \
+    CFLAGS="-fPIC -I${SYSROOT}/usr/include" \
+    LDFLAGS="-L${SYSROOT}/usr/lib/${TARGET}/${API}" \
     --without-iconv \
     --without-python \
     --without-lzma \
     --config-cache \
-    --enable-shared=yes \
-    --enable-static=no && \
+    --enable-shared=no \
+    --enable-static=yes && \
     make -j$(nproc) && \
     make install
 
