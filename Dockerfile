@@ -131,10 +131,40 @@ WORKDIR /root/php-${PHP_VERSION}
 # Android POSIX fixes
 RUN sed -i '1i#ifdef __ANDROID__\n#define eaccess(path, mode) access(path, mode)\n#endif' /root/php-8.4.2/ext/posix/posix.c
     
-RUN patch -p1 < ../dns-android-stub.patch && \
-    patch -p1 < ../ext-posix-posix.c.patch && \
+RUN patch -p1 < ../ext-posix-posix.c.patch && \
     patch -p1 < ../ext-standard-php_fopen_wrapper.c.patch && \
     patch -p1 < ../main-streams-cast.c.patch   
+
+# Apply DNS stub but keep gethostname available
+RUN { \
+    echo '#ifdef __ANDROID__'; \
+    echo '#include <sys/socket.h>'; \
+    echo '#include <netinet/in.h>'; \
+    echo '#include <sys/types.h>'; \
+    echo ''; \
+    echo 'typedef void* dns_handle_t;'; \
+    echo 'static inline dns_handle_t dns_open(const char *nameserver) { return NULL; }'; \
+    echo 'static inline void dns_free(dns_handle_t handle) {}'; \
+    echo 'static inline int dns_search(dns_handle_t handle, const char *dname, int class, int type,'; \
+    echo '    unsigned char *answer, int anslen, struct sockaddr *from, socklen_t *fromsize) {'; \
+    echo '    return -1;'; \
+    echo '}'; \
+    echo ''; \
+    echo '/* Android gethostname implementation */'; \
+    echo 'PHP_FUNCTION(gethostname)'; \
+    echo '{'; \
+    echo '    ZEND_PARSE_PARAMETERS_NONE();'; \
+    echo '    RETURN_STRING("localhost");'; \
+    echo '}'; \
+    echo ''; \
+    echo '/* Disable the rest of the DNS implementation on Android */'; \
+    echo '#define ANDROID_DNS_STUB'; \
+    echo '#endif'; \
+    echo ''; \
+    echo '#ifndef ANDROID_DNS_STUB'; \
+    cat ext/standard/dns.c; \
+    echo '#endif'; \
+} > ext/standard/dns.c.new && mv ext/standard/dns.c.new ext/standard/dns.c
 
 # Patch proc_open.c for Android
 RUN sed -i 's/r = posix_spawn_file_actions_addchdir_np(&factions, cwd);/r = -1; \/\/ Android compatibility/' ext/standard/proc_open.c
