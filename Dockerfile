@@ -200,7 +200,7 @@ WORKDIR /root
 RUN mkdir -p build install
 WORKDIR /root/build
 
-RUN PKG_CONFIG_PATH="/root/libzip-install/lib/pkgconfig:/root/onig-install/lib/pkgconfig:/root/openssl-install/lib/pkgconfig:/root/curl-install/lib/pkgconfig" \
+RUN PKG_CONFIG_PATH="/root/libzip-install/lib/pkgconfig:/root/onig-install/lib/pkgconfig:/root/openssl-install/lib/pkgconfig:/root/curl-install/lib/pkgconfig:/root/libxml2-install/lib/pkgconfig" \
   OPENSSL_CFLAGS="-I/root/openssl-install/include" \
   OPENSSL_LIBS="/root/openssl-install/lib/libssl.a /root/openssl-install/lib/libcrypto.a" \
   CURL_CFLAGS="-I/root/curl-install/include" \
@@ -209,6 +209,9 @@ RUN PKG_CONFIG_PATH="/root/libzip-install/lib/pkgconfig:/root/onig-install/lib/p
   ONIG_LIBS="-L/root/onig-install/lib -lonig" \
   LIBZIP_CFLAGS="-I/root/libzip-install/include" \
   LIBZIP_LIBS="-L/root/libzip-install/lib -lzip" \
+  # Add libxml2 flags
+  LIBXML2_CFLAGS="-I/root/libxml2-install/include/libxml2" \
+  LIBXML2_LIBS="-L/root/libxml2-install/lib -lxml2 -lz" \
   ../php-${PHP_VERSION}/configure \
     --host=${TARGET} \
     --prefix=/root/php-android-output \
@@ -218,17 +221,17 @@ RUN PKG_CONFIG_PATH="/root/libzip-install/lib/pkgconfig:/root/onig-install/lib/p
     --with-sqlite3 \
     --with-pdo-sqlite \
     --with-zip \
+    --with-libxml \
+    --enable-dom \
+    --disable-simplexml \  
+    --disable-xml \        
+    --disable-xmlreader \  
+    --disable-xmlwriter \ 
     --disable-cli \
     --disable-cgi \
     --disable-fpm \
-    --disable-dom \
-    --disable-simplexml \
-    --disable-xml \
-    --disable-xmlreader \
-    --disable-xmlwriter \
     --disable-posix \
     --without-pear \
-    --without-libxml \
     --disable-phar \
     --disable-phpdbg \
     --disable-opcache \
@@ -249,7 +252,8 @@ RUN PKG_CONFIG_PATH="/root/libzip-install/lib/pkgconfig:/root/onig-install/lib/p
         -I/root/sqlite-amalgamation-${SQLITE3_VERSION} \
         -I/root/openssl-install/include \
         -I/root/curl-install/include \
-        -I/root/onig-install/include" \
+        -I/root/onig-install/include \
+        -I/root/libxml2-install/include/libxml2" \
     LDFLAGS="-pie -shared \
          -Wl,--whole-archive \
          /root/openssl-install/lib/libssl.a \
@@ -259,8 +263,11 @@ RUN PKG_CONFIG_PATH="/root/libzip-install/lib/pkgconfig:/root/onig-install/lib/p
          -L/root/curl-install/lib \
          -L/root/onig-install/lib \
          -L/root/libzip-install/lib \
+         -L/root/libxml2-install/lib \
          -L${SYSROOT}/usr/lib/${TARGET}/${API} \
-         -lc -ldl"
+         -lc -ldl -lz"
+
+# The rest of the build process (make, make install, copying artifacts) remains the same.
 
 # Download missing Android DNS headers
 RUN for hdr in resolv_params.h resolv_private.h resolv_static.h resolv_stats.h; do \
