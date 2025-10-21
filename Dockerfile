@@ -195,10 +195,6 @@ RUN sed -i 's/r = posix_spawn_file_actions_addchdir_np(&factions, cwd);/r = -1; 
 # syslog patch
 RUN sed -i 's/#define syslog std_syslog/#ifdef __ANDROID__\n#define syslog(...)\n#else\n#define syslog std_syslog\n#endif/' main/php_syslog.c
 
-# Patch: disable getloadavg() (Android lacks it)
-RUN sed -i '/getloadavg/s/^/#ifndef ANDROID\n/' ext/standard/basic_functions.c && \
-    sed -i '/getloadavg/s/$/\n#endif/' ext/standard/basic_functions.c
-
 # Prepare build directories
 WORKDIR /root
 RUN mkdir -p build install
