@@ -282,8 +282,6 @@ RUN cp /root/onig-install/lib/libonig.so /root/install/
 RUN cp /root/php-android-output/lib/libphp.so /root/install/
 RUN cp /root/sqlite-amalgamation-${SQLITE3_VERSION}/libsqlite3.so /root/install/
 RUN cp /root/curl-install/lib/libcurl.so /root/install/
-# RUN cp /root/openssl-install/lib/libssl.so.1.1 /root/install/
-# RUN cp /root/openssl-install/lib/libcrypto.so.1.1 /root/install/
 
 # RUN readelf -d /root/install/libphp.so | grep NEEDED
 # RUN nm -D /root/php-android-output/lib/libphp.so | grep zif_gethostname
@@ -293,9 +291,9 @@ FROM alpine:3.21
 
 # Copy all artifacts
 COPY --from=buildsystem /root/install/ /artifacts/
-COPY --from=buildsystem /root/build/ /artifacts/headers/php-build/
-COPY --from=buildsystem /root/php-8.4.2/ /artifacts/headers/php-source/
+# COPY --from=buildsystem /root/build/ /artifacts/headers/php-build/
+# COPY --from=buildsystem /root/php-8.4.2/ /artifacts/headers/php-source/
 COPY --from=buildsystem /root/php-android-output/include/php/ /artifacts/headers/php/
-COPY --from=buildsystem /root/install/libonig.so /artifacts/libonig.so
+# COPY --from=buildsystem /root/install/libonig.so /artifacts/libonig.so
 
 WORKDIR /artifacts
