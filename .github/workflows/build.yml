@@ -1,4 +1,4 @@
-name: Build and Release PHP 8.4.2 for arm64-v8a
+name: Build and Release NDK Artifacts
 
 on:
   workflow_dispatch:
@@ -26,51 +26,37 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # --- Build Stage ---
-      - name: Build PHP 8.4.2 for ${{ matrix.architecture.abi }}
-        id: build-docker-target
+      - name: Build Docker Image
         run: |
           docker build \
             --tag php-ndk-builder:${{ matrix.architecture.abi }} \
             --build-arg TARGET="${{ matrix.architecture.target }}" \
-            --build-arg API="${{ matrix.architecture.api }}" \
-            .
+            --build-arg API="${{ matrix.architecture.api }}" .
 
-      # --- Package Stage ---
-      - name: Create Artifact Directory
+      - name: Extract Artifacts
         run: |
           mkdir -p release-package/binaries/${{ matrix.architecture.abi }}
           mkdir -p release-package/includes/php
 
-      - name: Extract Compiled Binaries and Headers
-        run: |
           CONTAINER_ID=$(docker create php-ndk-builder:${{ matrix.architecture.abi }})
 
-          # Copy all .so files from /artifacts (they come from /root/install)
-          docker cp $CONTAINER_ID:/artifacts/. ./release-package/binaries/${{ matrix.architecture.abi }}/ || \
-          echo "Warning: Could not find /artifacts"
-
-          # Copy PHP headers
-          docker cp $CONTAINER_ID:/artifacts/headers/php/. ./release-package/includes/php/ || \
-          echo "Warning: Could not find /artifacts/headers/php"
+          # Copy from /artifacts (Dockerfile final stage puts everything there)
+          docker cp $CONTAINER_ID:/artifacts/. ./release-package/binaries/${{ matrix.architecture.abi }}/
 
           docker rm $CONTAINER_ID
 
-      - name: Verify Artifacts
+      - name: Verify Extracted Files
         run: |
-          echo "=== Checking extracted .so files ==="
-          find release-package/binaries/${{ matrix.architecture.abi }}/ -type f -name "*.so"
-          echo "=== Checking header files ==="
-          find release-package/includes/ -name "*.h" | head -10
+          echo "=== Listing all .so and .h files ==="
+          find release-package -type f \( -name "*.so" -o -name "*.h" \)
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: php-ndk-artifacts-${{ matrix.architecture.abi }}
-          path: release-package/
+          path: release-package/**
           if-no-files-found: error
 
-  # --- Final Release Stage ---
   release:
     needs: build_and_package
     runs-on: ubuntu-latest
@@ -83,33 +69,33 @@ jobs:
       - name: Download All Artifacts
         uses: actions/download-artifact@v4
         with:
-          path: ./downloaded-artifacts
+          path: downloaded-artifacts
 
       - name: Prepare Final Release Structure
         run: |
           mkdir -p php-ndk-artifacts/lib/arm64-v8a
-          mkdir -p php-ndk-artifacts/includes/php
+          mkdir -p php-ndk-artifacts/include/php
 
-          # Copy all shared libs (.so)
-          find downloaded-artifacts -type f -name "*.so" -exec cp {} php-ndk-artifacts/lib/arm64-v8a/ \; || \
-          echo "Warning: No shared libraries found"
+          # Copy all compiled libraries
+          find downloaded-artifacts -type f -name "libphp.so" -exec cp {} php-ndk-artifacts/lib/arm64-v8a/ \;
+          find downloaded-artifacts -type f -name "libsqlite3.so" -exec cp {} php-ndk-artifacts/lib/arm64-v8a/ \;
+          find downloaded-artifacts -type f -name "libonig.so" -exec cp {} php-ndk-artifacts/lib/arm64-v8a/ \;
+          find downloaded-artifacts -type f -name "libcurl.so" -exec cp {} php-ndk-artifacts/lib/arm64-v8a/ \;
 
           # Copy PHP headers
-          find downloaded-artifacts -type f -name "*.h" -exec cp --parents {} php-ndk-artifacts/includes/php/ \; || \
-          echo "Warning: No headers found"
+          find downloaded-artifacts -type d -name "php" -exec cp -r {}/. php-ndk-artifacts/include/php/ \;
 
       - name: Verify Final Artifacts
         run: |
-          echo "=== Final artifact structure ==="
-          tree php-ndk-artifacts/ || ls -la php-ndk-artifacts/
-          echo "=== Library verification ==="
-          file php-ndk-artifacts/lib/arm64-v8a/*.so || echo "No libraries found"
-          echo "=== Header verification ==="
-          find php-ndk-artifacts/includes/ -name "*.h" | head -5
+          echo "=== Final structure ==="
+          tree php-ndk-artifacts || ls -la php-ndk-artifacts
+          echo "=== Shared libraries ==="
+          find php-ndk-artifacts/lib -name "*.so"
+          echo "=== PHP headers ==="
+          find php-ndk-artifacts/include -name "*.h" | head -10
 
       - name: Create ZIP Release Asset
-        run: |
-          zip -r php-ndk-artifacts.zip php-ndk-artifacts/
+        run: zip -r php-ndk-artifacts.zip php-ndk-artifacts/
 
       - name: Upload Release Asset
         uses: softprops/action-gh-release@v2
