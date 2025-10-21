@@ -195,6 +195,10 @@ RUN sed -i 's/r = posix_spawn_file_actions_addchdir_np(&factions, cwd);/r = -1; 
 # syslog patch
 RUN sed -i 's/#define syslog std_syslog/#ifdef __ANDROID__\n#define syslog(...)\n#else\n#define syslog std_syslog\n#endif/' main/php_syslog.c
 
+# Patch: disable getloadavg() (Android lacks it)
+RUN sed -i '/getloadavg/s/^/#ifndef ANDROID\n/' ext/standard/basic_functions.c && \
+    sed -i '/getloadavg/s/$/\n#endif/' ext/standard/basic_functions.c
+
 # Prepare build directories
 WORKDIR /root
 RUN mkdir -p build install
@@ -209,7 +213,6 @@ RUN PKG_CONFIG_PATH="/root/libzip-install/lib/pkgconfig:/root/onig-install/lib/p
   ONIG_LIBS="-L/root/onig-install/lib -lonig" \
   LIBZIP_CFLAGS="-I/root/libzip-install/include" \
   LIBZIP_LIBS="-L/root/libzip-install/lib -lzip" \
-  # Add libxml2 flags
   LIBXML2_CFLAGS="-I/root/libxml2-install/include/libxml2" \
   LIBXML2_LIBS="-L/root/libxml2-install/lib -lxml2 -lz" \
   ../php-${PHP_VERSION}/configure \
