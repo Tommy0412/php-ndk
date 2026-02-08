@@ -34,7 +34,7 @@ ENV SYSROOT=${TOOLCHAIN}/sysroot
 # Global 16KB Alignment Flag
 ENV LDFLAGS_16KB="-Wl,-z,max-page-size=16384"
 
-# 1. Build OpenSSL for Android (Static for PHP)
+# 1. Build OpenSSL (Static)
 WORKDIR /root
 RUN wget https://www.openssl.org/source/openssl-1.1.1w.tar.gz && \
     tar -xzf openssl-1.1.1w.tar.gz
@@ -47,7 +47,7 @@ RUN ANDROID_NDK_HOME="/opt/android-ndk-r27c" \
     no-shared no-asm no-comp no-hw no-engine && \
     make -j$(nproc) && make install_sw
 
-# 2. Build cURL for Android
+# 2. Build cURL (Shared, 16KB)
 WORKDIR /root
 RUN wget https://curl.se/download/curl-8.13.0.tar.gz && \
     tar -xzf curl-8.13.0.tar.gz
@@ -64,14 +64,14 @@ RUN ./configure \
     LDFLAGS="-L/root/openssl-install/lib ${LDFLAGS_16KB}" && \
     make -j$(nproc) && make install
 
-# 3. Download and build SQLite (16KB Aligned)
+# 3. Build SQLite (Shared, 16KB)
 WORKDIR /root
 RUN wget https://www.sqlite.org/2024/sqlite-amalgamation-${SQLITE3_VERSION}.zip && \
     unzip sqlite-amalgamation-${SQLITE3_VERSION}.zip
 WORKDIR /root/sqlite-amalgamation-${SQLITE3_VERSION}
 RUN ${CC} -o libsqlite3.so -shared -fPIC ${LDFLAGS_16KB} sqlite3.c
 
-# 4. Build Oniguruma for Android
+# 4. Build Oniguruma (Shared, 16KB)
 WORKDIR /root
 RUN wget https://github.com/kkos/oniguruma/releases/download/v6.9.9/onig-6.9.9.tar.gz && \
     tar -xzf onig-6.9.9.tar.gz
@@ -83,7 +83,7 @@ RUN ./configure \
     LDFLAGS="${LDFLAGS_16KB}" && \
     make -j$(nproc) && make install
 
-# 5. Build libzip for Android (CMake Alignment)
+# 5. Build libzip (Static, 16KB Alignment via CMake)
 WORKDIR /root
 ENV LIBZIP_VERSION=1.11.4
 RUN curl -LO https://libzip.org/download/libzip-${LIBZIP_VERSION}.tar.gz && \
@@ -100,11 +100,11 @@ RUN mkdir build && cd build && \
         -DBUILD_SHARED_LIBS=OFF -DENABLE_TESTS=OFF -DENABLE_EXAMPLES=OFF && \
     make -j$(nproc) && make install
 
-# 6. Build libxml2 for Android
+# 6. Build libxml2 (Static)
 WORKDIR /root
 ENV LIBXML2_VERSION=2.9.12
-RUN wget http://xmlsoft.org/sources/libxml2-${LIBXML2_VERSION}.tar.gz && \
-    tar -xzf libxml2-${LIBXML2_VERSION}.tar.gz
+RUN wget https://download.gnome.org/sources/libxml2/2.9/libxml2-${LIBXML2_VERSION}.tar.xz && \
+    tar -xJf libxml2-${LIBXML2_VERSION}.tar.xz
 WORKDIR /root/libxml2-${LIBXML2_VERSION}
 RUN ./configure \
     --host=${TARGET} \
@@ -125,7 +125,7 @@ RUN patch -p1 < ../ext-posix-posix.c.patch || true && \
     patch -p1 < ../ext-standard-php_fopen_wrapper.c.patch || true && \
     patch -p1 < ../main-streams-cast.c.patch || true
 
-# Apply DNS and POSIX fixes
+# Android DNS and POSIX fixes
 RUN { \
     echo '#include "php.h"'; echo '#include "php_ini.h"'; echo '#include "ext/standard/php_dns.h"'; \
     echo '#ifdef __ANDROID__'; echo 'typedef void* dns_handle_t;'; \
@@ -140,18 +140,34 @@ RUN sed -i 's/r = posix_spawn_file_actions_addchdir_np(&factions, cwd);/r = -1;/
 RUN sed -i 's/#define syslog std_syslog/#ifdef __ANDROID__\n#define syslog(...)\n#else\n#define syslog std_syslog\n#endif/' main/php_syslog.c
 RUN sed -i '1i#ifdef ANDROID\n#define getloadavg(load, nelem) (-1)\n#endif' ext/standard/basic_functions.c
 
-# 8. Final PHP Build (16KB Aligned)
+# 8. Final PHP Build (Bypassing pkg-config entirely)
 WORKDIR /root/build
-RUN PKG_CONFIG_PATH="/root/libzip-install/lib/pkgconfig:/root/onig-install/lib/pkgconfig:/root/openssl-install/lib/pkgconfig:/root/curl-install/lib/pkgconfig:/root/libxml2-install/lib/pkgconfig" \
-  ../php-${PHP_VERSION}/configure \
-    --host=${TARGET} --prefix=/root/php-android-output \
-    --enable-embed=shared --with-openssl=/root/openssl-install --with-curl=/root/curl-install \
-    --with-sqlite3 --with-pdo-sqlite --with-zip --with-libxml --enable-dom \
-    --disable-cli --disable-cgi --disable-fpm --disable-posix --without-pear --disable-phar \
+RUN ../php-${PHP_VERSION}/configure \
+    --host=${TARGET} \
+    --prefix=/root/php-android-output \
+    --enable-embed=shared \
+    --with-openssl=/root/openssl-install \
+    --with-curl=/root/curl-install \
+    --with-sqlite3 \
+    --with-pdo-sqlite \
+    --with-zip \
+    --with-libxml \
+    --enable-dom \
+    --disable-cli --disable-cgi --disable-fpm --disable-posix --without-pear --disable-phar --disable-phpdbg \
     CC=${CC} CXX=${CXX} \
     SQLITE_CFLAGS="-I/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
     SQLITE_LIBS="-lsqlite3 -L/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
-    CFLAGS="-DANDROID -fPIC -I${SYSROOT}/usr/include -I/root/openssl-install/include" \
+    ONIG_CFLAGS="-I/root/onig-install/include" \
+    ONIG_LIBS="-L/root/onig-install/lib -lonig" \
+    LIBZIP_CFLAGS="-I/root/libzip-install/include" \
+    LIBZIP_LIBS="-L/root/libzip-install/lib -lzip" \
+    LIBXML2_CFLAGS="-I/root/libxml2-install/include/libxml2" \
+    LIBXML2_LIBS="-L/root/libxml2-install/lib -lxml2" \
+    CURL_CFLAGS="-I/root/curl-install/include" \
+    CURL_LIBS="-L/root/curl-install/lib -lcurl" \
+    OPENSSL_CFLAGS="-I/root/openssl-install/include" \
+    OPENSSL_LIBS="-L/root/openssl-install/lib -lssl -lcrypto" \
+    CFLAGS="-DANDROID -fPIC -I${SYSROOT}/usr/include" \
     LDFLAGS="-shared ${LDFLAGS_16KB} \
          -Wl,--whole-archive /root/openssl-install/lib/libssl.a /root/openssl-install/lib/libcrypto.a -Wl,--no-whole-archive \
          -L/root/sqlite-amalgamation-${SQLITE3_VERSION} -L/root/curl-install/lib -L/root/onig-install/lib \
@@ -166,14 +182,13 @@ RUN mkdir -p /root/install && \
     cp /root/sqlite-amalgamation-${SQLITE3_VERSION}/libsqlite3.so /root/install/ && \
     cp /root/curl-install/lib/libcurl.so /root/install/
 
-# --- VERIFICATION STEP ---
-# This ensures every .so file has 0x4000 (16KB) alignment
+# 16KB Verification Step
 RUN for f in /root/install/*.so; do \
       echo "Checking $f alignment..."; \
       readelf -l $f | grep LOAD | awk '{print $NF}' | grep -q "0x4000" || (echo "$f is NOT 16KB aligned!" && exit 1); \
     done
 
-# --- FINAL STAGE ---
+# Final Stage
 FROM alpine:3.21
 COPY --from=buildsystem /root/install/ /artifacts/
 COPY --from=buildsystem /root/php-android-output/include/php/ /artifacts/headers/php/
