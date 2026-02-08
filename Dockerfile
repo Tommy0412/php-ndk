@@ -15,6 +15,19 @@ RUN wget https://dl.google.com/android/repository/${NDK_VERSION}.zip && \
 
 ENV PATH="${PATH}:${NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64/bin"
 
+# --- FORCE TOOLCHAIN WRAPPERS ---
+# We create wrapper scripts that inject the 16KB flags into every call to the compiler/linker.
+RUN mkdir -p /opt/wrappers && \
+    echo '#!/bin/bash' > /opt/wrappers/clang-wrap && \
+    echo "exec ${NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64/bin/${TARGET}${API}-clang \"\$@\" -Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384" >> /opt/wrappers/clang-wrap && \
+    echo '#!/bin/bash' > /opt/wrappers/clang++-wrap && \
+    echo "exec ${NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64/bin/${TARGET}${API}-clang++ \"\$@\" -Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384" >> /opt/wrappers/clang++-wrap && \
+    chmod +x /opt/wrappers/clang-wrap /opt/wrappers/clang++-wrap
+
+# Redirect CC and CXX to our wrappers
+ENV CC=/opt/wrappers/clang-wrap
+ENV CXX=/opt/wrappers/clang++-wrap
+
 # Prepare build environment
 WORKDIR /root
 ARG TARGET=aarch64-linux-android
