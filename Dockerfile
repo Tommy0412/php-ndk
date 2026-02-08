@@ -15,19 +15,6 @@ RUN wget https://dl.google.com/android/repository/${NDK_VERSION}.zip && \
 
 ENV PATH="${PATH}:${NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64/bin"
 
-# --- FORCE TOOLCHAIN WRAPPERS ---
-# We create wrapper scripts that inject the 16KB flags into every call to the compiler/linker.
-RUN mkdir -p /opt/wrappers && \
-    echo '#!/bin/bash' > /opt/wrappers/clang-wrap && \
-    echo "exec ${NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64/bin/${TARGET}${API}-clang \"\$@\" -Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384" >> /opt/wrappers/clang-wrap && \
-    echo '#!/bin/bash' > /opt/wrappers/clang++-wrap && \
-    echo "exec ${NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64/bin/${TARGET}${API}-clang++ \"\$@\" -Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384" >> /opt/wrappers/clang++-wrap && \
-    chmod +x /opt/wrappers/clang-wrap /opt/wrappers/clang++-wrap
-
-# Redirect CC and CXX to our wrappers
-ENV CC=/opt/wrappers/clang-wrap
-ENV CXX=/opt/wrappers/clang++-wrap
-
 # Prepare build environment
 WORKDIR /root
 ARG TARGET=aarch64-linux-android
@@ -165,7 +152,7 @@ RUN PKG_CONFIG_PATH="/root/libzip-install/lib/pkgconfig:/root/onig-install/lib/p
     SQLITE_CFLAGS="-I/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
     SQLITE_LIBS="-lsqlite3 -L/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
     CFLAGS="-DANDROID -fPIC -I${SYSROOT}/usr/include -Wno-implicit-function-declaration" \
-    LDFLAGS="-pie -shared ${LDFLAGS_16KB} \
+    LDFLAGS="-shared ${LDFLAGS_16KB} \
          -Wl,--whole-archive /root/openssl-install/lib/libssl.a /root/openssl-install/lib/libcrypto.a -Wl,--no-whole-archive \
          -L/root/sqlite-amalgamation-${SQLITE3_VERSION} -L/root/curl-install/lib -L/root/onig-install/lib \
          -L/root/libzip-install/lib -L/root/libxml2-install/lib -L${SYSROOT}/usr/lib/${TARGET}/${API} \
@@ -179,15 +166,20 @@ RUN mkdir -p /root/install && \
     cp /root/sqlite-amalgamation-${SQLITE3_VERSION}/libsqlite3.so /root/install/ && \
     cp /root/curl-install/lib/libcurl.so /root/install/
 
-# Point to the NDK's objdump
-ENV OBJDUMP=${TOOLCHAIN}/bin/llvm-objdump
-
-# --- FINAL VERIFICATION ---
-RUN for f in /root/install/*.so; do \
+RUN set -e; \
+    for f in /root/install/*.so; do \
       echo "Verifying $f..."; \
-      ${OBJDUMP} -p $f | grep -A1 "LOAD" | grep "alignment" | grep -q "2^14" && \
-      echo "SUCCESS: $f is 16KB aligned" || \
-      (echo "FAILURE: $f is NOT 16KB aligned" && exit 1); \
+      readelf -l "$f" | awk ' \
+        $1 == "LOAD" { \
+          getline; \
+          align = strtonum($NF); \
+          if (align < 0x4000) { \
+            printf "FAILURE: %s LOAD alignment %#x (< 0x4000)\n", FILENAME, align; \
+            exit 1; \
+          } \
+        } \
+      ' FILENAME="$f"; \
+      echo "SUCCESS: $f has >=16KB LOAD alignment"; \
     done
 
 # Final Stage
