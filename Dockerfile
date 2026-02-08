@@ -172,7 +172,7 @@ RUN set -e; \
       readelf -l "$f" | awk ' \
         $1 == "LOAD" { \
           getline; \
-          align = strtonum($NF); \
+          align = $NF + 0; \
           if (align < 0x4000) { \
             printf "FAILURE: %s LOAD alignment %#x (< 0x4000)\n", FILENAME, align; \
             exit 1; \
