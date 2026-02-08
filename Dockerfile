@@ -47,7 +47,18 @@ RUN ANDROID_NDK_HOME="/opt/android-ndk-r27c" \
     no-shared no-asm no-comp no-hw no-engine && \
     make -j$(nproc) && make install_sw
 
-# 2. Build cURL (Shared, 16KB)
+# 1.5. Build zlib (Shared, 16KB) - Add this BEFORE cURL
+WORKDIR /root
+RUN wget https://github.com/madler/zlib/archive/refs/tags/v1.3.1.tar.gz && \
+    tar -xzf v1.3.1.tar.gz
+WORKDIR /root/zlib-1.3.1
+RUN ./configure \
+    --prefix=/root/zlib-install \
+    CC=${CC} \
+    CFLAGS="-fPIC ${LDFLAGS_16KB}" && \
+    make -j$(nproc) && make install
+
+# 2. Build cURL (Updated with zlib path)
 WORKDIR /root
 RUN wget https://curl.se/download/curl-8.13.0.tar.gz && \
     tar -xzf curl-8.13.0.tar.gz
@@ -55,13 +66,13 @@ WORKDIR /root/curl-8.13.0
 RUN ./configure \
     --host=${TARGET} \
     --with-ssl=/root/openssl-install \
+    --with-zlib=/root/zlib-install \
     --prefix=/root/curl-install \
     --enable-shared --disable-static \
     --disable-verbose --enable-ipv6 --disable-manual \
     --without-libidn2 --without-librtmp --without-brotli --without-zstd --without-libpsl \
-    --with-zlib \
     CPPFLAGS="-I${SYSROOT}/usr/include -fPIC" \
-    LDFLAGS="-L/root/openssl-install/lib ${LDFLAGS_16KB}" && \
+    LDFLAGS="-L/root/openssl-install/lib -L/root/zlib-install/lib ${LDFLAGS_16KB}" && \
     make -j$(nproc) && make install
 
 # 3. Build SQLite (Shared, 16KB)
