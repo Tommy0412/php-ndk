@@ -180,18 +180,20 @@ RUN mkdir -p /root/install && \
     cp /root/curl-install/lib/libcurl.so /root/install/
 
 # --- FINAL VERIFICATION ---
-for f in /root/install/*.so; do
-  echo "Checking $f..."
-  readelf -l "$f" \
-    | awk '
-      $1 == "LOAD" { getline; align=strtonum($NF);
-        if (align < 0x4000) {
-          printf "CRITICAL: %s has LOAD p_align %#x (< 0x4000)\n", FILENAME, align
-          exit 1
-        }
-      }
-    ' FILENAME="$f"
-done
+RUN set -e; \
+    for f in /root/install/*.so; do \
+      echo "Checking $f..."; \
+      readelf -l "$f" | awk ' \
+        $1 == "LOAD" { \
+          getline; \
+          align = strtonum($NF); \
+          if (align < 0x4000) { \
+            printf "CRITICAL: %s has LOAD p_align %#x (< 0x4000)\n", FILENAME, align; \
+            exit 2; \
+          } \
+        } \
+      ' FILENAME="$f" || exit 1; \
+    done
 
 # Final Stage
 FROM alpine:3.21
