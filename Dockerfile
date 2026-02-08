@@ -31,10 +31,13 @@ ENV STRIP=llvm-strip
 ENV TOOLCHAIN=${NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64
 ENV SYSROOT=${TOOLCHAIN}/sysroot
 
+# --- 16KB ALIGNMENT FLAG ---
+ENV LDFLAGS_16KB="-Wl,-z,max-page-size=16384"
+
 # Build OpenSSL for Android
 WORKDIR /root
- RUN wget https://www.openssl.org/source/openssl-1.1.1w.tar.gz && \
- tar -xzf openssl-1.1.1w.tar.gz
+RUN wget https://www.openssl.org/source/openssl-1.1.1w.tar.gz && \
+    tar -xzf openssl-1.1.1w.tar.gz
 WORKDIR /root/openssl-1.1.1w
 
 RUN ANDROID_NDK_HOME="/opt/android-ndk-r27c" \
@@ -72,10 +75,8 @@ RUN ./configure \
     --without-zstd \
     --without-libpsl \
     --with-zlib \
-    CURL_CFLAGS="-I/root/curl-install/include" \
-    CURL_LIBS="-L/root/curl-install/lib -lcurl" \
     CPPFLAGS="-I${SYSROOT}/usr/include -fPIC" \
-    LDFLAGS="-L/root/openssl-install/lib" && \
+    LDFLAGS="-L/root/openssl-install/lib ${LDFLAGS_16KB}" && \
     make -j7 && \
     make install
 
@@ -84,7 +85,8 @@ WORKDIR /root
 RUN wget https://www.sqlite.org/2024/sqlite-amalgamation-${SQLITE3_VERSION}.zip && \
     unzip sqlite-amalgamation-${SQLITE3_VERSION}.zip
 WORKDIR /root/sqlite-amalgamation-${SQLITE3_VERSION}
-RUN ${CC} -o libsqlite3.so -shared -fPIC sqlite3.c
+# Added 16KB alignment to manual SO build
+RUN ${CC} -o libsqlite3.so -shared -fPIC ${LDFLAGS_16KB} sqlite3.c
 
 # Build Oniguruma for Android
 WORKDIR /root
@@ -96,7 +98,8 @@ RUN ./configure \
     --host=${TARGET} \
     --prefix=/root/onig-install \
     CC=${CC} \
-    CFLAGS="-fPIC" && \
+    CFLAGS="-fPIC" \
+    LDFLAGS="${LDFLAGS_16KB}" && \
     make -j$(nproc) && \
     make install
 
@@ -115,6 +118,7 @@ RUN mkdir build && cd build \
         -DANDROID_PLATFORM=android-32 \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX=/root/libzip-install \
+        -DCMAKE_SHARED_LINKER_FLAGS="${LDFLAGS_16KB}" \
         -DBUILD_SHARED_LIBS=OFF \
         -DENABLE_TESTS=OFF \
         -DENABLE_EXAMPLES=OFF \
@@ -124,9 +128,9 @@ RUN mkdir build && cd build \
 # Build libxml2 for Android
 WORKDIR /root
 ENV LIBXML2_VERSION=2.9.12
-RUN wget http://xmlsoft.org/sources/libxml2-${LIBXML2_VERSION}.tar.gz && \
-    tar -xzf libxml2-${LIBXML2_VERSION}.tar.gz && \
-    rm libxml2-${LIBXML2_VERSION}.tar.gz
+RUN wget https://download.gnome.org/sources/libxml2/2.9/libxml2-${LIBXML2_VERSION}.tar.xz && \
+    tar -xJf libxml2-${LIBXML2_VERSION}.tar.xz && \
+    rm libxml2-${LIBXML2_VERSION}.tar.xz
 
 WORKDIR /root/libxml2-${LIBXML2_VERSION}
 RUN ./configure \
@@ -134,7 +138,7 @@ RUN ./configure \
     --prefix=/root/libxml2-install \
     CC=${CC} \
     CFLAGS="-fPIC -I${SYSROOT}/usr/include" \
-    LDFLAGS="-L${SYSROOT}/usr/lib/${TARGET}/${API}" \
+    LDFLAGS="-L${SYSROOT}/usr/lib/${TARGET}/${API} ${LDFLAGS_16KB}" \
     --without-iconv \
     --without-python \
     --without-lzma \
@@ -205,9 +209,10 @@ WORKDIR /root
 RUN mkdir -p build install
 WORKDIR /root/build
 
+# --- THE FIX FOR ZLIB ERROR: MANUALLY DEFINING CURL_CFLAGS/LIBS ---
 RUN PKG_CONFIG_PATH="/root/libzip-install/lib/pkgconfig:/root/onig-install/lib/pkgconfig:/root/openssl-install/lib/pkgconfig:/root/curl-install/lib/pkgconfig:/root/libxml2-install/lib/pkgconfig" \
   OPENSSL_CFLAGS="-I/root/openssl-install/include" \
-  OPENSSL_LIBS="/root/openssl-install/lib/libssl.a /root/openssl-install/lib/libcrypto.a" \
+  OPENSSL_LIBS="-L/root/openssl-install/lib -lssl -lcrypto" \
   CURL_CFLAGS="-I/root/curl-install/include" \
   CURL_LIBS="-L/root/curl-install/lib -lcurl" \
   ONIG_CFLAGS="-I/root/onig-install/include" \
@@ -258,7 +263,7 @@ RUN PKG_CONFIG_PATH="/root/libzip-install/lib/pkgconfig:/root/onig-install/lib/p
         -I/root/curl-install/include \
         -I/root/onig-install/include \
         -I/root/libxml2-install/include/libxml2" \
-    LDFLAGS="-pie -shared \
+    LDFLAGS="-pie -shared ${LDFLAGS_16KB} \
          -Wl,--whole-archive \
          /root/openssl-install/lib/libssl.a \
          /root/openssl-install/lib/libcrypto.a \
@@ -271,15 +276,13 @@ RUN PKG_CONFIG_PATH="/root/libzip-install/lib/pkgconfig:/root/onig-install/lib/p
          -L${SYSROOT}/usr/lib/${TARGET}/${API} \
          -lc -ldl -lz"
 
-# The rest of the build process (make, make install, copying artifacts) remains the same.
-
 # Download missing Android DNS headers
 RUN for hdr in resolv_params.h resolv_private.h resolv_static.h resolv_stats.h; do \
       curl https://android.googlesource.com/platform/bionic/+/refs/heads/android12--mainline-release/libc/dns/include/$hdr?format=TEXT | base64 -d > $hdr; \
     done
 
 # Build and install PHP with embed SAPI
-RUN make -j7 && make install
+RUN make -j$(nproc) && make install
 
 # Copy the compiled libraries
 RUN cp /root/onig-install/lib/libonig.so /root/install/
@@ -287,17 +290,13 @@ RUN cp /root/php-android-output/lib/libphp.so /root/install/
 RUN cp /root/sqlite-amalgamation-${SQLITE3_VERSION}/libsqlite3.so /root/install/
 RUN cp /root/curl-install/lib/libcurl.so /root/install/
 
-# RUN readelf -d /root/install/libphp.so | grep NEEDED
-# RUN nm -D /root/php-android-output/lib/libphp.so | grep zif_gethostname
+# --- FINAL VERIFICATION ---
+RUN for f in /root/install/*.so; do \
+      readelf -l $f | grep LOAD | awk '{print $NF}' | grep -q "0x4000" || (echo "$f is NOT 16KB aligned!" && exit 1); \
+    done
 
 # --- FINAL STAGE ---
 FROM alpine:3.21
-
-# Copy all artifacts
 COPY --from=buildsystem /root/install/ /artifacts/
-# COPY --from=buildsystem /root/build/ /artifacts/headers/php-build/
-# COPY --from=buildsystem /root/php-8.4.2/ /artifacts/headers/php-source/
 COPY --from=buildsystem /root/php-android-output/include/php/ /artifacts/headers/php/
-# COPY --from=buildsystem /root/install/libonig.so /artifacts/libonig.so
-
 WORKDIR /artifacts
