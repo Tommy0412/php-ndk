@@ -44,13 +44,25 @@ RUN ANDROID_NDK_HOME="/opt/android-ndk-r27c" \
     --prefix=/root/openssl-install no-shared no-asm no-comp no-hw no-engine && \
     make -j$(nproc) && make install_sw
 
-# 2. Build cURL (Forced 16KB)
+# 2. Build cURL (Forced 16KB & libpsl disabled)
 WORKDIR /root
 RUN wget https://curl.se/download/curl-8.13.0.tar.gz && tar -xzf curl-8.13.0.tar.gz
 WORKDIR /root/curl-8.13.0
 RUN LDFLAGS="-L/root/openssl-install/lib ${LDFLAGS_16KB}" \
-    ./configure --host=${TARGET} --target=${TARGET} --with-ssl=/root/openssl-install \
-    --prefix=/root/curl-install --enable-shared --disable-static --with-zlib \
+    ./configure --host=${TARGET} --target=${TARGET} \
+    --with-ssl=/root/openssl-install \
+    --prefix=/root/curl-install \
+    --enable-shared \
+    --disable-static \
+    --disable-verbose \
+    --enable-ipv6 \
+    --disable-manual \
+    --without-libidn2 \
+    --without-librtmp \
+    --without-brotli \
+    --without-zstd \
+    --without-libpsl \
+    --with-zlib \
     CPPFLAGS="-I${SYSROOT}/usr/include -fPIC" && \
     make -j$(nproc) && make install
 
