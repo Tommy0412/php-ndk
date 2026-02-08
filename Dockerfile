@@ -179,20 +179,15 @@ RUN mkdir -p /root/install && \
     cp /root/sqlite-amalgamation-${SQLITE3_VERSION}/libsqlite3.so /root/install/ && \
     cp /root/curl-install/lib/libcurl.so /root/install/
 
+# Point to the NDK's objdump
+ENV OBJDUMP=${TOOLCHAIN}/bin/llvm-objdump
+
 # --- FINAL VERIFICATION ---
-RUN set -e; \
-    for f in /root/install/*.so; do \
-      echo "Checking $f..."; \
-      readelf -l "$f" | awk ' \
-        $1 == "LOAD" { \
-          getline; \
-          align = strtonum($NF); \
-          if (align < 0x4000) { \
-            printf "CRITICAL: %s has LOAD p_align %#x (< 0x4000)\n", FILENAME, align; \
-            exit 2; \
-          } \
-        } \
-      ' FILENAME="$f" || exit 1; \
+RUN for f in /root/install/*.so; do \
+      echo "Verifying $f..."; \
+      ${OBJDUMP} -p $f | grep -A1 "LOAD" | grep "alignment" | grep -q "2^14" && \
+      echo "SUCCESS: $f is 16KB aligned" || \
+      (echo "FAILURE: $f is NOT 16KB aligned" && exit 1); \
     done
 
 # Final Stage
