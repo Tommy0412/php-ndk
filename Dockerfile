@@ -180,11 +180,18 @@ RUN mkdir -p /root/install && \
     cp /root/curl-install/lib/libcurl.so /root/install/
 
 # --- FINAL VERIFICATION ---
-# This ensures alignment is 0x4000 (16384)
-RUN for f in /root/install/*.so; do \
-      echo "Checking $f..."; \
-      readelf -l $f | grep LOAD | awk '{print $NF}' | grep -q "0x4000" || (echo "CRITICAL: $f is NOT 16KB aligned!" && exit 1); \
-    done
+for f in /root/install/*.so; do
+  echo "Checking $f..."
+  readelf -l "$f" \
+    | awk '
+      $1 == "LOAD" { getline; align=strtonum($NF);
+        if (align < 0x4000) {
+          printf "CRITICAL: %s has LOAD p_align %#x (< 0x4000)\n", FILENAME, align
+          exit 1
+        }
+      }
+    ' FILENAME="$f"
+done
 
 # Final Stage
 FROM alpine:3.21
