@@ -72,6 +72,8 @@ RUN ./configure \
     --without-zstd \
     --without-libpsl \
     --with-zlib \
+    CURL_CFLAGS="-I/root/curl-install/include" \
+    CURL_LIBS="-L/root/curl-install/lib -lcurl" \
     CPPFLAGS="-I${SYSROOT}/usr/include -fPIC" \
     LDFLAGS="-L/root/openssl-install/lib" && \
     make -j7 && \
