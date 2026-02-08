@@ -128,6 +128,8 @@ RUN { \
 RUN sed -i 's/r = posix_spawn_file_actions_addchdir_np(&factions, cwd);/r = -1;/' ext/standard/proc_open.c
 RUN sed -i 's/#define syslog std_syslog/#ifdef __ANDROID__\n#define syslog(...)\n#else\n#define syslog std_syslog\n#endif/' main/php_syslog.c
 RUN sed -i '1i#ifdef ANDROID\n#define getloadavg(load, nelem) (-1)\n#endif' ext/standard/basic_functions.c
+# Fix RAND_egd undeclared function error for Android/OpenSSL 1.1.1
+RUN sed -i 's/RAND_egd(file)/-1/g' /root/php-8.4.2/ext/openssl/openssl.c
 
 # 8. Final PHP Build
 WORKDIR /root/build
@@ -149,7 +151,7 @@ RUN PKG_CONFIG_PATH="/root/libzip-install/lib/pkgconfig:/root/onig-install/lib/p
     --without-pear --disable-phar --disable-phpdbg CC=${CC} CXX=${CXX} \
     SQLITE_CFLAGS="-I/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
     SQLITE_LIBS="-lsqlite3 -L/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
-    CFLAGS="-DANDROID -fPIC -I${SYSROOT}/usr/include" \
+    CFLAGS="-DANDROID -fPIC -I${SYSROOT}/usr/include -Wno-implicit-function-declaration" \
     LDFLAGS="-pie -shared ${LDFLAGS_16KB} \
          -Wl,--whole-archive /root/openssl-install/lib/libssl.a /root/openssl-install/lib/libcrypto.a -Wl,--no-whole-archive \
          -L/root/sqlite-amalgamation-${SQLITE3_VERSION} -L/root/curl-install/lib -L/root/onig-install/lib \
