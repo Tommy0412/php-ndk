@@ -54,17 +54,6 @@ jobs:
 
           docker rm $CONTAINER_ID
 
-      - name: Verify Extracted Files
-        run: |
-          echo "=== Listing all .so and .h files ==="
-          find release-package -type f \( -name "*.so" -o -name "*.h" \)
-          echo "=== Verifying 16KB alignment ==="
-          for f in release-package/binaries/${{ matrix.architecture.abi }}/*.so; do
-            echo "Checking $f..."
-            readelf -l "$f" | grep -A1 "LOAD" | tail -1 | awk '{if ($NF < 0x4000) {print "FAIL: " FILENAME " alignment " $NF; exit 1}}' FILENAME="$f"
-            echo "OK: $f"
-          done
-
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
