@@ -17,6 +17,8 @@ ENV PATH="${PATH}:${NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64/bin"
 
 # Prepare build environment
 WORKDIR /root
+
+# Build arguments (set by GitHub Actions matrix)
 ARG TARGET=aarch64-linux-android
 ARG API=28
 ARG PHP_VERSION=8.4.2
@@ -32,15 +34,20 @@ ENV TOOLCHAIN=${NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64
 ENV SYSROOT=${TOOLCHAIN}/sysroot
 
 # --- FORCE 16KB ALIGNMENT FLAGS ---
-# We use both max-page-size and common-page-size to ensure the ELF layout is strictly 16KB
 ENV LDFLAGS_16KB="-Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384"
 
 # 1. Build OpenSSL for Android
 WORKDIR /root
 RUN wget https://www.openssl.org/source/openssl-1.1.1w.tar.gz && tar -xzf openssl-1.1.1w.tar.gz
 WORKDIR /root/openssl-1.1.1w
-RUN ANDROID_NDK_HOME="/opt/android-ndk-r27c" \
-    ./Configure android-arm64 -D__ANDROID_API__=${API} -DOPENSSL_NO_EGD \
+RUN case "${TARGET}" in \
+      aarch64-linux-android) OPENSSL_TARGET="android-arm64" ;; \
+      armv7a-linux-androideabi) OPENSSL_TARGET="android-arm" ;; \
+      x86_64-linux-android) OPENSSL_TARGET="android-x86_64" ;; \
+      i686-linux-android) OPENSSL_TARGET="android-x86" ;; \
+    esac && \
+    ANDROID_NDK_HOME="/opt/android-ndk-r27c" \
+    ./Configure ${OPENSSL_TARGET} -D__ANDROID_API__=${API} -DOPENSSL_NO_EGD \
     --prefix=/root/openssl-install no-shared no-asm no-comp no-hw no-engine && \
     make -j$(nproc) && make install_sw
 
@@ -85,9 +92,15 @@ WORKDIR /root
 ENV LIBZIP_VERSION=1.11.4
 RUN curl -LO https://libzip.org/download/libzip-${LIBZIP_VERSION}.tar.gz && tar xzf libzip-${LIBZIP_VERSION}.tar.gz
 WORKDIR /root/libzip-${LIBZIP_VERSION}
-RUN mkdir build && cd build && \
+RUN case "${TARGET}" in \
+      aarch64-linux-android) ANDROID_ABI="arm64-v8a" ;; \
+      armv7a-linux-androideabi) ANDROID_ABI="armeabi-v7a" ;; \
+      x86_64-linux-android) ANDROID_ABI="x86_64" ;; \
+      i686-linux-android) ANDROID_ABI="x86" ;; \
+    esac && \
+    mkdir build && cd build && \
     cmake .. -DCMAKE_TOOLCHAIN_FILE=${NDK_ROOT}/build/cmake/android.toolchain.cmake \
-        -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-${API} -DCMAKE_BUILD_TYPE=Release \
+        -DANDROID_ABI=${ANDROID_ABI} -DANDROID_PLATFORM=android-${API} -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX=/root/libzip-install -DBUILD_SHARED_LIBS=OFF \
         -DCMAKE_SHARED_LINKER_FLAGS="${LDFLAGS_16KB}" \
         -DCMAKE_EXE_LINKER_FLAGS="${LDFLAGS_16KB}" && \
@@ -161,7 +174,7 @@ RUN PKG_CONFIG_PATH="/root/libzip-install/lib/pkgconfig:/root/onig-install/lib/p
          
 # Download missing Android DNS headers
 RUN for hdr in resolv_params.h resolv_private.h resolv_static.h resolv_stats.h; do \
-      curl https://android.googlesource.com/platform/bionic/+/refs/heads/android12--mainline-release/libc/dns/include/$hdr?format=TEXT | base64 -d > $hdr; \
+      curl "https://android.googlesource.com/platform/bionic/+/refs/heads/android12--mainline-release/libc/dns/include/$hdr?format=TEXT" | base64 -d > $hdr || true; \
     done
 
 # Build and install PHP with embed SAPI
