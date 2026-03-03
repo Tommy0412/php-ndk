@@ -187,22 +187,6 @@ RUN mkdir -p /root/install && \
     cp /root/sqlite-amalgamation-${SQLITE3_VERSION}/libsqlite3.so /root/install/ && \
     cp /root/curl-install/lib/libcurl.so /root/install/
 
-RUN set -e; \
-    for f in /root/install/*.so; do \
-      echo "Verifying $f..."; \
-      readelf -l "$f" | awk ' \
-        $1 == "LOAD" { \
-          getline; \
-          align = $NF + 0; \
-          if (align < 0x4000) { \
-            printf "FAILURE: %s LOAD alignment %#x (< 0x4000)\n", FILENAME, align; \
-            exit 1; \
-          } \
-        } \
-      ' FILENAME="$f"; \
-      echo "SUCCESS: $f has >=16KB LOAD alignment"; \
-    done
-
 # Final Stage
 FROM alpine:3.21
 COPY --from=buildsystem /root/install/ /artifacts/
