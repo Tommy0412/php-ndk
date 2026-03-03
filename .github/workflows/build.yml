@@ -21,6 +21,12 @@ jobs:
           - abi: "arm64-v8a"
             target: "aarch64-linux-android"
             api: "28"
+          - abi: "armeabi-v7a"
+            target: "armv7a-linux-androideabi"
+            api: "28"
+          - abi: "x86_64"
+            target: "x86_64-linux-android"
+            api: "28"
 
     steps:
       - name: Checkout Code
@@ -36,12 +42,15 @@ jobs:
       - name: Extract Artifacts
         run: |
           mkdir -p release-package/binaries/${{ matrix.architecture.abi }}
-          mkdir -p release-package/includes/php
+          mkdir -p release-package/headers/php
 
           CONTAINER_ID=$(docker create php-ndk-builder:${{ matrix.architecture.abi }})
 
           # Copy from /artifacts (Dockerfile final stage puts everything there)
           docker cp $CONTAINER_ID:/artifacts/. ./release-package/binaries/${{ matrix.architecture.abi }}/
+          
+          # Copy headers
+          docker cp $CONTAINER_ID:/artifacts/headers/php/. ./release-package/headers/php/
 
           docker rm $CONTAINER_ID
 
@@ -49,6 +58,12 @@ jobs:
         run: |
           echo "=== Listing all .so and .h files ==="
           find release-package -type f \( -name "*.so" -o -name "*.h" \)
+          echo "=== Verifying 16KB alignment ==="
+          for f in release-package/binaries/${{ matrix.architecture.abi }}/*.so; do
+            echo "Checking $f..."
+            readelf -l "$f" | grep -A1 "LOAD" | tail -1 | awk '{if ($NF < 0x4000) {print "FAIL: " FILENAME " alignment " $NF; exit 1}}' FILENAME="$f"
+            echo "OK: $f"
+          done
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
@@ -73,22 +88,26 @@ jobs:
 
       - name: Prepare Final Release Structure
         run: |
-          mkdir -p php-ndk-artifacts/lib/arm64-v8a
+          mkdir -p php-ndk-artifacts/lib
           mkdir -p php-ndk-artifacts/include/php
 
-          # Copy all compiled libraries
-          find downloaded-artifacts -type f -name "libphp.so" -exec cp {} php-ndk-artifacts/lib/arm64-v8a/ \;
-          find downloaded-artifacts -type f -name "libsqlite3.so" -exec cp {} php-ndk-artifacts/lib/arm64-v8a/ \;
-          find downloaded-artifacts -type f -name "libonig.so" -exec cp {} php-ndk-artifacts/lib/arm64-v8a/ \;
-          find downloaded-artifacts -type f -name "libcurl.so" -exec cp {} php-ndk-artifacts/lib/arm64-v8a/ \;
+          # Copy libraries for each architecture into separate subdirs
+          for abi in arm64-v8a armeabi-v7a x86_64; do
+            mkdir -p php-ndk-artifacts/lib/$abi
+            if [ -d "downloaded-artifacts/php-ndk-artifacts-$abi/binaries/$abi" ]; then
+              cp downloaded-artifacts/php-ndk-artifacts-$abi/binaries/$abi/*.so php-ndk-artifacts/lib/$abi/
+            fi
+          done
 
-          # Copy PHP headers
-          find downloaded-artifacts -type d -name "php" -exec cp -r {}/. php-ndk-artifacts/include/php/ \;
+          # Copy PHP headers (same for all arches, pick one)
+          if [ -d "downloaded-artifacts/php-ndk-artifacts-arm64-v8a/headers/php" ]; then
+            cp -r downloaded-artifacts/php-ndk-artifacts-arm64-v8a/headers/php/. php-ndk-artifacts/include/php/
+          fi
 
       - name: Verify Final Artifacts
         run: |
           echo "=== Final structure ==="
-          tree php-ndk-artifacts || ls -la php-ndk-artifacts
+          tree php-ndk-artifacts || ls -laR php-ndk-artifacts
           echo "=== Shared libraries ==="
           find php-ndk-artifacts/lib -name "*.so"
           echo "=== PHP headers ==="
@@ -101,5 +120,34 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: php-ndk-artifacts.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  release_individual_arches:
+    needs: build_and_package
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    strategy:
+      matrix:
+        architecture:
+          - abi: "arm64-v8a"
+          - abi: "armeabi-v7a"
+          - abi: "x86_64"
+
+    steps:
+      - name: Download Architecture Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: php-ndk-artifacts-${{ matrix.architecture.abi }}
+          path: downloaded-${{ matrix.architecture.abi }}
+
+      - name: Create Per-Arch ZIP
+        run: |
+          zip -r php-ndk-${{ matrix.architecture.abi }}.zip downloaded-${{ matrix.architecture.abi }}/
+
+      - name: Upload Per-Arch Release Asset
+        uses: softprops/action-gh-release@v2
+        with:
+          files: php-ndk-${{ matrix.architecture.abi }}.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
