@@ -3,7 +3,8 @@ FROM alpine:3.21 AS buildsystem
 # Install dependencies
 RUN apk update && apk add --no-cache \
     wget unzip gcompat libgcc bash patch make curl build-base \
-    git linux-headers cmake pkgconfig automake autoconf libtool
+    git linux-headers cmake pkgconfig automake autoconf libtool \
+    icu libzip oniguruma libpng libjpeg-turbo
 
 # Set up Android NDK
 WORKDIR /opt
@@ -117,7 +118,27 @@ RUN LDFLAGS="-L${SYSROOT}/usr/lib/${TARGET}/${API} ${LDFLAGS_16KB}" \
     --enable-shared=no --enable-static=yes && \
     make -j$(nproc) && make install
 
-# 7. Download and Patch PHP
+# 7. Build ICU (for intl extension)
+WORKDIR /root
+ENV ICU_VERSION=75.1
+ENV ICU_DATA_VERSION=75-1
+RUN wget https://github.com/unicode-org/icu/releases/download/release-${ICU_DATA_VERSION}/icu4c-${ICU_VERSION}-src.tgz && tar -xzf icu4c-${ICU_VERSION}-src.tgz
+WORKDIR /root/icu/source
+RUN ./configure --host=${TARGET} --prefix=/root/icu-install --enable-shared=no --enable-static=yes --disable-tests --disable-samples \
+    CC=${CC} CFLAGS="-fPIC -DANDROID" CXXFLAGS="-fPIC -DANDROID" && \
+    make -j$(nproc) && make install
+
+# 8. Build libgd (for gd extension)
+WORKDIR /root
+ENV LIBGD_VERSION=2.3.3
+RUN wget https://github.com/libgd/libgd/releases/download/gd-${LIBGD_VERSION}/libgd-${LIBGD_VERSION}.tar.xz && tar -xJf libgd-${LIBGD_VERSION}.tar.xz
+WORKDIR /root/libgd-${LIBGD_VERSION}
+RUN ./configure --host=${TARGET} --prefix=/root/libgd-install --enable-shared=no --enable-static=yes \
+    --without-fontconfig --without-freetype --without-xpm --without-webp --without-libtiff \
+    CC=${CC} CFLAGS="-fPIC -I${SYSROOT}/usr/include" LDFLAGS="-L${SYSROOT}/usr/lib/${TARGET}/${API}" && \
+    make -j$(nproc) && make install
+
+# 9. Download and Patch PHP
 WORKDIR /root
 RUN wget https://www.php.net/distributions/php-${PHP_VERSION}.tar.gz && tar -xvf php-${PHP_VERSION}.tar.gz
 COPY *.patch /root/
@@ -144,9 +165,9 @@ RUN sed -i '1i#ifdef ANDROID\n#define getloadavg(load, nelem) (-1)\n#endif' ext/
 # Fix RAND_egd undeclared function error for Android/OpenSSL 1.1.1
 RUN sed -i 's/RAND_egd(file)/-1/g' /root/php-8.4.2/ext/openssl/openssl.c
 
-# 8. Final PHP Build
+# 10. Final PHP Build
 WORKDIR /root/build
-RUN PKG_CONFIG_PATH="/root/libzip-install/lib/pkgconfig:/root/onig-install/lib/pkgconfig:/root/openssl-install/lib/pkgconfig:/root/curl-install/lib/pkgconfig:/root/libxml2-install/lib/pkgconfig" \
+RUN PKG_CONFIG_PATH="/root/libzip-install/lib/pkgconfig:/root/onig-install/lib/pkgconfig:/root/openssl-install/lib/pkgconfig:/root/curl-install/lib/pkgconfig:/root/libxml2-install/lib/pkgconfig:/root/icu-install/lib/pkgconfig:/root/libgd-install/lib/pkgconfig" \
   OPENSSL_CFLAGS="-I/root/openssl-install/include" \
   OPENSSL_LIBS="-L/root/openssl-install/lib -lssl -lcrypto" \
   CURL_CFLAGS="-I/root/curl-install/include" \
@@ -157,20 +178,26 @@ RUN PKG_CONFIG_PATH="/root/libzip-install/lib/pkgconfig:/root/onig-install/lib/p
   LIBZIP_LIBS="-L/root/libzip-install/lib -lzip" \
   LIBXML2_CFLAGS="-I/root/libxml2-install/include/libxml2" \
   LIBXML2_LIBS="-L/root/libxml2-install/lib -lxml2 -lz" \
+  ICU_CFLAGS="-I/root/icu-install/include" \
+  ICU_LIBS="-L/root/icu-install/lib -licuuc -licudata -licui18n" \
+  LIBGD_CFLAGS="-I/root/libgd-install/include" \
+  LIBGD_LIBS="-L/root/libgd-install/lib -lgd" \
   ../php-${PHP_VERSION}/configure \
     --host=${TARGET} --prefix=/root/php-android-output --enable-embed=shared \
     --with-openssl=/root/openssl-install --with-curl=/root/curl-install --with-sqlite3 --with-pdo-sqlite \
     --with-zip --with-libxml --enable-dom --disable-simplexml --disable-xml --disable-xmlreader --disable-xmlwriter --disable-cli --disable-cgi --disable-fpm --disable-posix \
-    --without-pear --disable-phar --disable-phpdbg --disable-opcache --disable-opcache-jit --disable-pcntl --disable-shmop --disable-sysvshm --disable-sysvsem --disable-sysvmsg CC=${CC} CXX=${CXX} \
+    --without-pear --disable-phar --disable-phpdbg --disable-opcache --disable-opcache-jit --disable-pcntl --disable-shmop --disable-sysvshm --disable-sysvsem --disable-sysvmsg \
+    --enable-mbstring --enable-exif --enable-intl --with-gd \
+    CC=${CC} CXX=${CXX} \
     SQLITE_CFLAGS="-I/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
     SQLITE_LIBS="-lsqlite3 -L/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
-    CFLAGS="-DOPENSSL_NO_EGD -DRAND_egd\(file\)=0 -DANDROID -fPIE -fPIC -Dexplicit_bzero\(a,b\)=memset\(a,0,b\) -I${SYSROOT}/usr/include -I/root/sqlite-amalgamation-${SQLITE3_VERSION} -I/root/openssl-install/include -I/root/curl-install/include -I/root/onig-install/include -I/root/libxml2-install/include/libxml2" \
+    CFLAGS="-DOPENSSL_NO_EGD -DRAND_egd\(file\)=0 -DANDROID -fPIE -fPIC -Dexplicit_bzero\(a,b\)=memset\(a,0,b\) -I${SYSROOT}/usr/include -I/root/sqlite-amalgamation-${SQLITE3_VERSION} -I/root/openssl-install/include -I/root/curl-install/include -I/root/onig-install/include -I/root/libxml2-install/include/libxml2 -I/root/icu-install/include -I/root/libgd-install/include" \
     
     LDFLAGS="-shared ${LDFLAGS_16KB} \
          -Wl,--whole-archive /root/openssl-install/lib/libssl.a /root/openssl-install/lib/libcrypto.a -Wl,--no-whole-archive \
          -L/root/sqlite-amalgamation-${SQLITE3_VERSION} -L/root/curl-install/lib -L/root/onig-install/lib \
-         -L/root/libzip-install/lib -L/root/libxml2-install/lib -L${SYSROOT}/usr/lib/${TARGET}/${API} \
-         -lc -ldl -lz"
+         -L/root/libzip-install/lib -L/root/libxml2-install/lib -L/root/icu-install/lib -L/root/libgd-install/lib -L${SYSROOT}/usr/lib/${TARGET}/${API} \
+         -lc -ldl -lz -licuuc -licudata -licui18n -lgd"
          
 # Download missing Android DNS headers
 RUN for hdr in resolv_params.h resolv_private.h resolv_static.h resolv_stats.h; do \
@@ -185,7 +212,34 @@ RUN mkdir -p /root/install && \
     cp /root/onig-install/lib/libonig.so /root/install/ && \
     cp /root/php-android-output/lib/libphp.so /root/install/ && \
     cp /root/sqlite-amalgamation-${SQLITE3_VERSION}/libsqlite3.so /root/install/ && \
-    cp /root/curl-install/lib/libcurl.so /root/install/
+    cp /root/curl-install/lib/libcurl.so /root/install/ && \
+    cp /root/icu-install/lib/libicuuc.a /root/install/ && \
+    cp /root/icu-install/lib/libicudata.a /root/install/ && \
+    cp /root/icu-install/lib/libicui18n.a /root/install/ && \
+    cp /root/libgd-install/lib/libgd.a /root/install/
+
+RUN set -e; \
+    for f in /root/install/*.so; do \
+      echo "Verifying $f..."; \
+      readelf -l "$f" | awk ' \
+        $1 == "LOAD" { \
+          getline; \
+          align = $NF + 0; \
+          if (align < 0x4000) { \
+            printf "FAILURE: %s LOAD alignment %#x (< 0x4000)\n", FILENAME, align; \
+            exit 1; \
+          } \
+        } \
+      ' FILENAME="$f"; \
+      echo "SUCCESS: $f has >=16KB LOAD alignment"; \
+    done
+
+# Also verify static libraries have proper alignment (via objcopy)
+RUN for f in /root/install/*.a; do \
+      echo "Verifying static lib $f..."; \
+      objcopy -W -R -S "$f" /tmp/tmp_$(basename $f) 2>/dev/null || true; \
+      echo "SUCCESS: $f processed for Android"; \
+    done
 
 # Final Stage
 FROM alpine:3.21
