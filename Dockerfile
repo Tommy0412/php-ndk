@@ -118,8 +118,8 @@ RUN LDFLAGS="-L${SYSROOT}/usr/lib/${TARGET}/${API} ${LDFLAGS_16KB}" \
     --enable-shared=no --enable-static=yes && \
     make -j$(nproc) && make install
 
-# 7. Use ICU from NDK (prebuilt)
-# ICU is already included in the Android NDK at ${NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/${TARGET}/${API}/libicu.so
+# 7. Use ICU from NDK (prebuilt) - DISABLED
+# ICU is already included in the Android NDK but we're not using intl extension
 
 # 8. Download and Patch PHP
 WORKDIR /root
@@ -161,24 +161,22 @@ RUN PKG_CONFIG_PATH="/root/libzip-install/lib/pkgconfig:/root/onig-install/lib/p
   LIBZIP_LIBS="-L/root/libzip-install/lib -lzip" \
   LIBXML2_CFLAGS="-I/root/libxml2-install/include/libxml2" \
   LIBXML2_LIBS="-L/root/libxml2-install/lib -lxml2 -lz" \
-  ICU_CFLAGS="-I${NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include" \
-  ICU_LIBS="-L${NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/${TARGET}/${API} -licuuc -licudata -licui18n" \
   ../php-${PHP_VERSION}/configure \
     --host=${TARGET} --prefix=/root/php-android-output --enable-embed=shared \
     --with-openssl=/root/openssl-install --with-curl=/root/curl-install --with-sqlite3 --with-pdo-sqlite \
     --with-zip --with-libxml --enable-dom --disable-simplexml --disable-xml --disable-xmlreader --disable-xmlwriter --disable-cli --disable-cgi --disable-fpm --disable-posix \
     --without-pear --disable-phar --disable-phpdbg --disable-opcache --disable-opcache-jit --disable-pcntl --disable-shmop --disable-sysvshm --disable-sysvsem --disable-sysvmsg \
-    --enable-mbstring --enable-exif --enable-intl --with-gd=bundled \
+    --enable-mbstring --enable-exif --with-gd=bundled \
     CC=${CC} CXX=${CXX} \
     SQLITE_CFLAGS="-I/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
     SQLITE_LIBS="-lsqlite3 -L/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
-    CFLAGS="-DOPENSSL_NO_EGD -DRAND_egd\(file\)=0 -DANDROID -fPIE -fPIC -Dexplicit_bzero\(a,b\)=memset\(a,0,b\) -I${SYSROOT}/usr/include -I/root/sqlite-amalgamation-${SQLITE3_VERSION} -I/root/openssl-install/include -I/root/curl-install/include -I/root/onig-install/include -I/root/libxml2-install/include/libxml2 -I${NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include" \
+    CFLAGS="-DOPENSSL_NO_EGD -DRAND_egd\(file\)=0 -DANDROID -fPIE -fPIC -Dexplicit_bzero\(a,b\)=memset\(a,0,b\) -I${SYSROOT}/usr/include -I/root/sqlite-amalgamation-${SQLITE3_VERSION} -I/root/openssl-install/include -I/root/curl-install/include -I/root/onig-install/include -I/root/libxml2-install/include/libxml2" \
     
     LDFLAGS="-shared ${LDFLAGS_16KB} \
          -Wl,--whole-archive /root/openssl-install/lib/libssl.a /root/openssl-install/lib/libcrypto.a -Wl,--no-whole-archive \
          -L/root/sqlite-amalgamation-${SQLITE3_VERSION} -L/root/curl-install/lib -L/root/onig-install/lib \
-         -L/root/libzip-install/lib -L/root/libxml2-install/lib -L${NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/${TARGET}/${API} -L${SYSROOT}/usr/lib/${TARGET}/${API} \
-         -lc -ldl -lz -licuuc -licudata -licui18n"
+         -L/root/libzip-install/lib -L/root/libxml2-install/lib -L${SYSROOT}/usr/lib/${TARGET}/${API} \
+         -lc -ldl -lz"
          
 # Download missing Android DNS headers
 RUN for hdr in resolv_params.h resolv_private.h resolv_static.h resolv_stats.h; do \
