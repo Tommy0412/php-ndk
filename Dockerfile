@@ -123,10 +123,10 @@ WORKDIR /root
 ENV ICU_VERSION=75.1
 RUN curl -L -o icu4c-${ICU_VERSION}-src.tgz https://github.com/unicode-org/icu/releases/download/release-75-1/icu4c-75_1-src.tgz && tar -xzf icu4c-${ICU_VERSION}-src.tgz
 
-# Build ICU data files only (using Linux host tools)
+# Build ICU data files only (using Linux host tools - need to override CC)
 WORKDIR /root/icu/source
 RUN mkdir -p data/out && \
-    ./runConfigureICU Linux --prefix=/tmp/icu-data && \
+    CC=gcc CXX=g++ ./runConfigureICU Linux --prefix=/tmp/icu-data && \
     make -C data -j$(nproc) && \
     make -C data install
 
