@@ -4,7 +4,7 @@ FROM alpine:3.21 AS buildsystem
 RUN apk update && apk add --no-cache \
     wget unzip gcompat libgcc bash patch make curl build-base \
     git linux-headers cmake pkgconfig automake autoconf libtool \
-    libzip oniguruma libpng libjpeg-turbo
+    libzip oniguruma libpng libjpeg-turbo bzip2-dev
 
 # Set up Android NDK
 WORKDIR /opt
