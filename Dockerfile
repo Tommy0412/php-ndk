@@ -4,7 +4,7 @@ FROM alpine:3.21 AS buildsystem
 RUN apk update && apk add --no-cache \
     wget unzip gcompat libgcc bash patch make curl build-base \
     git linux-headers cmake pkgconfig automake autoconf libtool \
-    icu libzip oniguruma libpng libjpeg-turbo
+    libzip oniguruma libpng libjpeg-turbo
 
 # Set up Android NDK
 WORKDIR /opt
@@ -118,12 +118,21 @@ RUN LDFLAGS="-L${SYSROOT}/usr/lib/${TARGET}/${API} ${LDFLAGS_16KB}" \
     --enable-shared=no --enable-static=yes && \
     make -j$(nproc) && make install
 
-# 7. Build ICU (for intl extension)
+# 7. Build ICU (for intl extension) - using host build for data, then cross-compile
 WORKDIR /root
 ENV ICU_VERSION=75.1
 RUN curl -L -o icu4c-${ICU_VERSION}-src.tgz https://github.com/unicode-org/icu/releases/download/release-75-1/icu4c-75_1-src.tgz && tar -xzf icu4c-${ICU_VERSION}-src.tgz
+
+# First build ICU for host (x86_64) to generate data
 WORKDIR /root/icu/source
+RUN ./configure --prefix=/root/icu-host-install --enable-shared=no --enable-static=yes --disable-tests --disable-samples && \
+    make -j$(nproc) && make install
+
+# Now cross-compile for Android using host build as reference
+WORKDIR /root/icu/source
+RUN make clean || true
 RUN ./configure --host=${TARGET} --prefix=/root/icu-install --enable-shared=no --enable-static=yes --disable-tests --disable-samples \
+    --with-cross-build=/root/icu-host-install \
     CC=${CC} CFLAGS="-fPIC -DANDROID" CXXFLAGS="-fPIC -DANDROID" && \
     make -j$(nproc) && make install
 
