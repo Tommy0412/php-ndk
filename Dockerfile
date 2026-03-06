@@ -118,22 +118,24 @@ RUN LDFLAGS="-L${SYSROOT}/usr/lib/${TARGET}/${API} ${LDFLAGS_16KB}" \
     --enable-shared=no --enable-static=yes && \
     make -j$(nproc) && make install
 
-# 7. Build ICU (for intl extension) - using host build for data, then cross-compile
+# 7. Build ICU (for intl extension)
 WORKDIR /root
 ENV ICU_VERSION=75.1
 RUN curl -L -o icu4c-${ICU_VERSION}-src.tgz https://github.com/unicode-org/icu/releases/download/release-75-1/icu4c-75_1-src.tgz && tar -xzf icu4c-${ICU_VERSION}-src.tgz
 
-# First build ICU for host (x86_64) to generate data
+# Build ICU data files only (using Linux host tools)
 WORKDIR /root/icu/source
-RUN ./configure --prefix=/root/icu-host-install --enable-shared=no --enable-static=yes --disable-tests --disable-samples && \
-    make -j$(nproc) && make install
+RUN mkdir -p data/out && \
+    ./runConfigureICU Linux --prefix=/tmp/icu-data && \
+    make -C data -j$(nproc) && \
+    make -C data install
 
-# Now cross-compile for Android using host build as reference
+# Cross-compile ICU for Android using pre-built data
 WORKDIR /root/icu/source
-RUN make clean || true
-RUN ./configure --host=${TARGET} --prefix=/root/icu-install --enable-shared=no --enable-static=yes --disable-tests --disable-samples \
-    --with-cross-build=/root/icu-host-install \
-    CC=${CC} CFLAGS="-fPIC -DANDROID" CXXFLAGS="-fPIC -DANDROID" && \
+RUN ./configure --host=${TARGET} --prefix=/root/icu-install --enable-shared=no --enable-static=yes --disable-tests --disable-samples --disable-renaming \
+    --with-data-packaging=archive \
+    --with-icu-legacy-byte-type=yes \
+    CC=${CC} CXX=${CXX} CFLAGS="-fPIC -DANDROID ${LDFLAGS_16KB}" CXXFLAGS="-fPIC -DANDROID ${LDFLAGS_16KB}" LDFLAGS="${LDFLAGS_16KB}" && \
     make -j$(nproc) && make install
 
 # 8. Download and Patch PHP
