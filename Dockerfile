@@ -161,6 +161,12 @@ RUN PKG_CONFIG_PATH="/root/libzip-install/lib/pkgconfig:/root/onig-install/lib/p
   LIBZIP_LIBS="-L/root/libzip-install/lib -lzip" \
   LIBXML2_CFLAGS="-I/root/libxml2-install/include/libxml2" \
   LIBXML2_LIBS="-L/root/libxml2-install/lib -lxml2 -lz" \
+  ZLIB_CFLAGS="-I${SYSROOT}/usr/include" \
+  ZLIB_LIBS="-L${SYSROOT}/usr/lib/${TARGET}/${API} -lz" \
+  BZ2_CFLAGS="-I${SYSROOT}/usr/include" \
+  BZ2_LIBS="-L${SYSROOT}/usr/lib/${TARGET}/${API} -lbz2" \
+  ICONV_CFLAGS="-I${SYSROOT}/usr/include" \
+  ICONV_LIBS="-L${SYSROOT}/usr/lib/${TARGET}/${API}" \
   ../php-${PHP_VERSION}/configure \
     --host=${TARGET} --prefix=/root/php-android-output --enable-embed=shared \
     --with-openssl=/root/openssl-install --with-curl=/root/curl-install --with-sqlite3 --with-pdo-sqlite \
@@ -176,7 +182,7 @@ RUN PKG_CONFIG_PATH="/root/libzip-install/lib/pkgconfig:/root/onig-install/lib/p
          -Wl,--whole-archive /root/openssl-install/lib/libssl.a /root/openssl-install/lib/libcrypto.a -Wl,--no-whole-archive \
          -L/root/sqlite-amalgamation-${SQLITE3_VERSION} -L/root/curl-install/lib -L/root/onig-install/lib \
          -L/root/libzip-install/lib -L/root/libxml2-install/lib -L${SYSROOT}/usr/lib/${TARGET}/${API} \
-         -lc -ldl -lz"
+         -lc -ldl -lz -lbz2"
          
 # Download missing Android DNS headers
 RUN for hdr in resolv_params.h resolv_private.h resolv_static.h resolv_stats.h; do \
