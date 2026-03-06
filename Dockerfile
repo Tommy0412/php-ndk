@@ -146,7 +146,7 @@ RUN sed -i 's/r = posix_spawn_file_actions_addchdir_np(&factions, cwd);/r = -1;/
 RUN sed -i 's/#define syslog std_syslog/#ifdef __ANDROID__\n#define syslog(...)\n#else\n#define syslog std_syslog\n#endif/' main/php_syslog.c
 RUN sed -i '1i#ifdef ANDROID\n#define getloadavg(load, nelem) (-1)\n#endif' ext/standard/basic_functions.c
 # Fix RAND_egd undeclared function error for Android/OpenSSL 1.1.1
-RUN sed -i 's/RAND_egd(file)/-1/g' /root/php-8.4.2/ext/openssl/openssl.c
+RUN sed -i 's/RAND_egd/-1/g' /root/php-8.4.2/ext/openssl/openssl.c
 
 # 9. Final PHP Build
 WORKDIR /root/build
@@ -165,17 +165,15 @@ RUN PKG_CONFIG_PATH="/root/libzip-install/lib/pkgconfig:/root/onig-install/lib/p
   ZLIB_LIBS="-L${SYSROOT}/usr/lib/${TARGET}/${API} -lz" \
   BZ2_CFLAGS="-I${SYSROOT}/usr/include" \
   BZ2_LIBS="-L${SYSROOT}/usr/lib/${TARGET}/${API} -lbz2" \
-  ICONV_CFLAGS="-I${SYSROOT}/usr/include" \
-  ICONV_LIBS="-L${SYSROOT}/usr/lib/${TARGET}/${API}" \
   ../php-${PHP_VERSION}/configure \
     --host=${TARGET} --prefix=/root/php-android-output --enable-embed=shared \
     --with-openssl=/root/openssl-install --with-curl=/root/curl-install --with-sqlite3 --with-pdo-sqlite \
-    --with-zip --with-libxml --with-zlib --with-bz2 --with-iconv --enable-mbregex --enable-bcmath --enable-dom --disable-simplexml --disable-xml --disable-xmlreader --disable-xmlwriter --disable-cli --disable-cgi --disable-fpm --disable-posix \
+    --with-zip --with-libxml --with-zlib --with-bz2 --without-iconv --enable-mbregex --enable-bcmath --disable-simplexml --disable-xml --disable-xmlreader --disable-xmlwriter --disable-cli --disable-cgi --disable-fpm --disable-posix \
     --without-pear --disable-phar --disable-phpdbg --disable-opcache --disable-opcache-jit --disable-pcntl --disable-shmop --disable-sysvshm --disable-sysvsem --disable-sysvmsg \
     --enable-mbstring --enable-exif \
     CC=${CC} CXX=${CXX} \
     SQLITE_CFLAGS="-I/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
-    SQLITE_LIBS="-lsqlite3 -L/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
+    SQLITE_LIBS="-L/root/sqlite-amalgamation-${SQLITE3_VERSION} -lsqlite3" \
     CFLAGS="-DOPENSSL_NO_EGD -DRAND_egd(file)=0 -DANDROID -fPIC -Dexplicit_bzero(a,b)=memset(a,0,b) -I${SYSROOT}/usr/include -I/root/sqlite-amalgamation-${SQLITE3_VERSION} -I/root/openssl-install/include -I/root/curl-install/include -I/root/onig-install/include -I/root/libxml2-install/include/libxml2"
          
 # Download missing Android DNS headers
