@@ -123,18 +123,17 @@ WORKDIR /root
 ENV ICU_VERSION=75.1
 RUN curl -L -o icu4c-${ICU_VERSION}-src.tgz https://github.com/unicode-org/icu/releases/download/release-75-1/icu4c-75_1-src.tgz && tar -xzf icu4c-${ICU_VERSION}-src.tgz
 
-# Build ICU data files only (using Linux host tools - need to override CC)
+# Full native build for host to generate tools and data
 WORKDIR /root/icu/source
-RUN mkdir -p data/out && \
-    CC=gcc CXX=g++ ./runConfigureICU Linux --prefix=/tmp/icu-data && \
-    make -C data -j$(nproc) && \
-    make -C data install
+RUN CC=gcc CXX=g++ ./configure --prefix=/root/icu-host-install --enable-shared=yes --enable-static=no --disable-tests --disable-samples && \
+    make -j$(nproc) && make install
 
-# Cross-compile ICU for Android using pre-built data
+# Cross-compile ICU for Android using host build as cross-build reference
 WORKDIR /root/icu/source
+RUN make clean || true
 RUN ./configure --host=${TARGET} --prefix=/root/icu-install --enable-shared=no --enable-static=yes --disable-tests --disable-samples --disable-renaming \
     --with-data-packaging=archive \
-    --with-icu-legacy-byte-type=yes \
+    --with-cross-build=/root/icu-host-install \
     CC=${CC} CXX=${CXX} CFLAGS="-fPIC -DANDROID ${LDFLAGS_16KB}" CXXFLAGS="-fPIC -DANDROID ${LDFLAGS_16KB}" LDFLAGS="${LDFLAGS_16KB}" && \
     make -j$(nproc) && make install
 
