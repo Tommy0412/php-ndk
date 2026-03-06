@@ -118,24 +118,8 @@ RUN LDFLAGS="-L${SYSROOT}/usr/lib/${TARGET}/${API} ${LDFLAGS_16KB}" \
     --enable-shared=no --enable-static=yes && \
     make -j$(nproc) && make install
 
-# 7. Build ICU (for intl extension)
-WORKDIR /root
-ENV ICU_VERSION=75.1
-RUN curl -L -o icu4c-${ICU_VERSION}-src.tgz https://github.com/unicode-org/icu/releases/download/release-75-1/icu4c-75_1-src.tgz && tar -xzf icu4c-${ICU_VERSION}-src.tgz
-
-# Full native build for host to generate tools and data
-WORKDIR /root/icu/source
-RUN CC=gcc CXX=g++ ./configure --prefix=/root/icu-host-install --enable-shared=yes --enable-static=no --disable-tests --disable-samples && \
-    make -j$(nproc) && make install
-
-# Cross-compile ICU for Android using host build as cross-build reference
-WORKDIR /root/icu/source
-RUN make clean || true
-RUN ./configure --host=${TARGET} --prefix=/root/icu-install --enable-shared=no --enable-static=yes --disable-tests --disable-samples --disable-renaming \
-    --with-data-packaging=archive \
-    --with-cross-build=/root/icu-host-install \
-    CC=${CC} CXX=${CXX} CFLAGS="-fPIC -DANDROID ${LDFLAGS_16KB}" CXXFLAGS="-fPIC -DANDROID ${LDFLAGS_16KB}" LDFLAGS="${LDFLAGS_16KB}" && \
-    make -j$(nproc) && make install
+# 7. Use ICU from NDK (prebuilt)
+# ICU is already included in the Android NDK at ${NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/${TARGET}/${API}/libicu.so
 
 # 8. Download and Patch PHP
 WORKDIR /root
@@ -177,8 +161,8 @@ RUN PKG_CONFIG_PATH="/root/libzip-install/lib/pkgconfig:/root/onig-install/lib/p
   LIBZIP_LIBS="-L/root/libzip-install/lib -lzip" \
   LIBXML2_CFLAGS="-I/root/libxml2-install/include/libxml2" \
   LIBXML2_LIBS="-L/root/libxml2-install/lib -lxml2 -lz" \
-  ICU_CFLAGS="-I/root/icu-install/include" \
-  ICU_LIBS="-L/root/icu-install/lib -licuuc -licudata -licui18n" \
+  ICU_CFLAGS="-I${NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include" \
+  ICU_LIBS="-L${NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/${TARGET}/${API} -licuuc -licudata -licui18n" \
   ../php-${PHP_VERSION}/configure \
     --host=${TARGET} --prefix=/root/php-android-output --enable-embed=shared \
     --with-openssl=/root/openssl-install --with-curl=/root/curl-install --with-sqlite3 --with-pdo-sqlite \
@@ -188,12 +172,12 @@ RUN PKG_CONFIG_PATH="/root/libzip-install/lib/pkgconfig:/root/onig-install/lib/p
     CC=${CC} CXX=${CXX} \
     SQLITE_CFLAGS="-I/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
     SQLITE_LIBS="-lsqlite3 -L/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
-    CFLAGS="-DOPENSSL_NO_EGD -DRAND_egd\(file\)=0 -DANDROID -fPIE -fPIC -Dexplicit_bzero\(a,b\)=memset\(a,0,b\) -I${SYSROOT}/usr/include -I/root/sqlite-amalgamation-${SQLITE3_VERSION} -I/root/openssl-install/include -I/root/curl-install/include -I/root/onig-install/include -I/root/libxml2-install/include/libxml2 -I/root/icu-install/include" \
+    CFLAGS="-DOPENSSL_NO_EGD -DRAND_egd\(file\)=0 -DANDROID -fPIE -fPIC -Dexplicit_bzero\(a,b\)=memset\(a,0,b\) -I${SYSROOT}/usr/include -I/root/sqlite-amalgamation-${SQLITE3_VERSION} -I/root/openssl-install/include -I/root/curl-install/include -I/root/onig-install/include -I/root/libxml2-install/include/libxml2 -I${NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include" \
     
     LDFLAGS="-shared ${LDFLAGS_16KB} \
          -Wl,--whole-archive /root/openssl-install/lib/libssl.a /root/openssl-install/lib/libcrypto.a -Wl,--no-whole-archive \
          -L/root/sqlite-amalgamation-${SQLITE3_VERSION} -L/root/curl-install/lib -L/root/onig-install/lib \
-         -L/root/libzip-install/lib -L/root/libxml2-install/lib -L/root/icu-install/lib -L${SYSROOT}/usr/lib/${TARGET}/${API} \
+         -L/root/libzip-install/lib -L/root/libxml2-install/lib -L${NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/${TARGET}/${API} -L${SYSROOT}/usr/lib/${TARGET}/${API} \
          -lc -ldl -lz -licuuc -licudata -licui18n"
          
 # Download missing Android DNS headers
@@ -209,10 +193,7 @@ RUN mkdir -p /root/install && \
     cp /root/onig-install/lib/libonig.so /root/install/ && \
     cp /root/php-android-output/lib/libphp.so /root/install/ && \
     cp /root/sqlite-amalgamation-${SQLITE3_VERSION}/libsqlite3.so /root/install/ && \
-    cp /root/curl-install/lib/libcurl.so /root/install/ && \
-    cp /root/icu-install/lib/libicuuc.a /root/install/ && \
-    cp /root/icu-install/lib/libicudata.a /root/install/ && \
-    cp /root/icu-install/lib/libicui18n.a /root/install/
+    cp /root/curl-install/lib/libcurl.so /root/install/
 
 RUN set -e; \
     for f in /root/install/*.so; do \
