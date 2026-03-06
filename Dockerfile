@@ -118,6 +118,9 @@ RUN LDFLAGS="-L${SYSROOT}/usr/lib/${TARGET}/${API} ${LDFLAGS_16KB}" \
     --enable-shared=no --enable-static=yes && \
     make -j$(nproc) && make install
 
+# 7. Use ICU from NDK (prebuilt) - DISABLED
+# ICU is already included in the Android NDK but we're not using intl extension
+
 # 8. Download and Patch PHP
 WORKDIR /root
 RUN wget https://www.php.net/distributions/php-${PHP_VERSION}.tar.gz && tar -xvf php-${PHP_VERSION}.tar.gz
@@ -173,13 +176,7 @@ RUN PKG_CONFIG_PATH="/root/libzip-install/lib/pkgconfig:/root/onig-install/lib/p
     CC=${CC} CXX=${CXX} \
     SQLITE_CFLAGS="-I/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
     SQLITE_LIBS="-lsqlite3 -L/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
-    CFLAGS="-DOPENSSL_NO_EGD -DRAND_egd\(file\)=0 -DANDROID -fPIE -fPIC -Dexplicit_bzero\(a,b\)=memset\(a,0,b\) -I${SYSROOT}/usr/include -I/root/sqlite-amalgamation-${SQLITE3_VERSION} -I/root/openssl-install/include -I/root/curl-install/include -I/root/onig-install/include -I/root/libxml2-install/include/libxml2" \
-    
-    LDFLAGS="${LDFLAGS_16KB} \
-         -Wl,--whole-archive /root/openssl-install/lib/libssl.a /root/openssl-install/lib/libcrypto.a -Wl,--no-whole-archive \
-         -L/root/sqlite-amalgamation-${SQLITE3_VERSION} -L/root/curl-install/lib -L/root/onig-install/lib \
-         -L/root/libzip-install/lib -L/root/libxml2-install/lib -L${SYSROOT}/usr/lib/${TARGET}/${API} \
-         -lc -ldl -lz -lbz2"
+    CFLAGS="-DOPENSSL_NO_EGD -DRAND_egd(file)=0 -DANDROID -fPIC -Dexplicit_bzero(a,b)=memset(a,0,b) -I${SYSROOT}/usr/include -I/root/sqlite-amalgamation-${SQLITE3_VERSION} -I/root/openssl-install/include -I/root/curl-install/include -I/root/onig-install/include -I/root/libxml2-install/include/libxml2"
          
 # Download missing Android DNS headers
 RUN for hdr in resolv_params.h resolv_private.h resolv_static.h resolv_stats.h; do \
@@ -187,7 +184,7 @@ RUN for hdr in resolv_params.h resolv_private.h resolv_static.h resolv_stats.h; 
     done
 
 # Build and install PHP with embed SAPI
-RUN make -j7 && make install
+RUN make -j7 LDFLAGS="-shared -Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384 -Wl,--whole-archive /root/openssl-install/lib/libssl.a /root/openssl-install/lib/libcrypto.a -Wl,--no-whole-archive -L/root/sqlite-amalgamation-${SQLITE3_VERSION} -L/root/curl-install/lib -L/root/onig-install/lib -L/root/libzip-install/lib -L/root/libxml2-install/lib -L${SYSROOT}/usr/lib/${TARGET}/${API} -lc -ldl -lz -lbz2" && make install
 
 # Prepare Artifacts
 RUN mkdir -p /root/install && \
