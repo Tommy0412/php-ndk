@@ -157,7 +157,7 @@ RUN sed -i 's/r = posix_spawn_file_actions_addchdir_np(&factions, cwd);/r = -1;/
 RUN sed -i 's/#define syslog std_syslog/#ifdef __ANDROID__\n#define syslog(...)\n#else\n#define syslog std_syslog\n#endif/' main/php_syslog.c
 RUN sed -i '1i#ifdef ANDROID\n#define getloadavg(load, nelem) (-1)\n#endif' ext/standard/basic_functions.c
 # Fix RAND_egd undeclared function error for Android/OpenSSL 1.1.1
-RUN sed -i 's/RAND_egd/-1/g' /root/php-8.4.2/ext/openssl/openssl.c
+RUN sed -i 's/RAND_egd/-1/g' /root/php-${PHP_VERSION}/ext/openssl/openssl.c
 
 # 9. Final PHP Build
 WORKDIR /root/build
@@ -174,8 +174,6 @@ RUN PKG_CONFIG_PATH="/root/libzip-install/lib/pkgconfig:/root/onig-install/lib/p
   LIBXML2_LIBS="-L/root/libxml2-install/lib -lxml2 -lz" \
   ZLIB_CFLAGS="-I${SYSROOT}/usr/include" \
   ZLIB_LIBS="-L${SYSROOT}/usr/lib/${TARGET}/${API} -lz" \
-  BZ2_CFLAGS="-I/root/bzip2-install/include" \
-  BZ2_LIBS="-L/root/bzip2-install/lib -lbz2" \
   ../php-${PHP_VERSION}/configure \
     --host=${TARGET} --prefix=/root/php-android-output --enable-embed=shared \
     --with-openssl=/root/openssl-install --with-curl=/root/curl-install --with-sqlite3 --with-pdo-sqlite \
@@ -185,8 +183,8 @@ RUN PKG_CONFIG_PATH="/root/libzip-install/lib/pkgconfig:/root/onig-install/lib/p
     CC=${CC} CXX=${CXX} \
     SQLITE_CFLAGS="-I/root/sqlite-amalgamation-${SQLITE3_VERSION}" \
     SQLITE_LIBS="-L/root/sqlite-amalgamation-${SQLITE3_VERSION} -lsqlite3" \
-    CFLAGS="-DOPENSSL_NO_EGD -DRAND_egd(file)=0 -DANDROID -fPIC -Dexplicit_bzero(a,b)=memset(a,0,b) -I${SYSROOT}/usr/include -I/root/sqlite-amalgamation-${SQLITE3_VERSION} -I/root/openssl-install/include -I/root/curl-install/include -I/root/onig-install/include -I/root/libxml2-install/include/libxml2"
-         
+    CFLAGS="-DOPENSSL_NO_EGD -DANDROID -fPIC -Dexplicit_bzero(a,b)=memset(a,0,b) -I${SYSROOT}/usr/include -I/root/sqlite-amalgamation-${SQLITE3_VERSION} -I/root/openssl-install/include -I/root/curl-install/include -I/root/onig-install/include -I/root/libxml2-install/include/libxml2"
+
 # Download missing Android DNS headers
 RUN for hdr in resolv_params.h resolv_private.h resolv_static.h resolv_stats.h; do \
       curl "https://android.googlesource.com/platform/bionic/+/refs/heads/android12--mainline-release/libc/dns/include/$hdr?format=TEXT" | base64 -d > $hdr || true; \
