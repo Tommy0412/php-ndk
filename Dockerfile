@@ -179,7 +179,7 @@ RUN PKG_CONFIG_PATH="/root/libzip-install/lib/pkgconfig:/root/onig-install/lib/p
   ../php-${PHP_VERSION}/configure \
     --host=${TARGET} --prefix=/root/php-android-output --enable-embed=shared \
     --with-openssl=/root/openssl-install --with-curl=/root/curl-install --with-sqlite3 --with-pdo-sqlite \
-    --with-zip --with-libxml --with-zlib --with-bz2 --without-iconv --enable-mbregex --enable-bcmath --disable-simplexml --disable-xml --disable-xmlreader --disable-xmlwriter --disable-cli --disable-cgi --disable-fpm --disable-posix \
+    --with-zip --with-libxml --with-zlib --with-bz2=/root/bzip2-install --without-iconv --enable-mbregex --enable-bcmath --disable-simplexml --disable-xml --disable-xmlreader --disable-xmlwriter --disable-cli --disable-cgi --disable-fpm --disable-posix \
     --without-pear --disable-phar --disable-phpdbg --disable-opcache --disable-opcache-jit --disable-pcntl --disable-shmop --disable-sysvshm --disable-sysvsem --disable-sysvmsg \
     --enable-mbstring --enable-exif \
     CC=${CC} CXX=${CXX} \
