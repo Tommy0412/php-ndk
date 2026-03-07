@@ -118,8 +118,19 @@ RUN LDFLAGS="-L${SYSROOT}/usr/lib/${TARGET}/${API} ${LDFLAGS_16KB}" \
     --enable-shared=no --enable-static=yes && \
     make -j$(nproc) && make install
 
-# 7. Use ICU from NDK (prebuilt) - DISABLED
-# ICU is already included in the Android NDK but we're not using intl extension
+# 7. Build bzip2 for Android
+WORKDIR /root
+RUN wget https://sourceware.org/pub/bzip2/bzip2-1.0.8.tar.gz && tar -xzf bzip2-1.0.8.tar.gz
+WORKDIR /root/bzip2-1.0.8
+RUN make -j$(nproc) \
+        CC="${CC}" \
+        AR="${AR}" \
+        RANLIB="${RANLIB}" \
+        CFLAGS="-fPIC -I${SYSROOT}/usr/include" \
+        libbz2.a && \
+    mkdir -p /root/bzip2-install/include /root/bzip2-install/lib && \
+    cp bzlib.h /root/bzip2-install/include/ && \
+    cp libbz2.a /root/bzip2-install/lib/
 
 # 8. Download and Patch PHP
 WORKDIR /root
@@ -163,8 +174,8 @@ RUN PKG_CONFIG_PATH="/root/libzip-install/lib/pkgconfig:/root/onig-install/lib/p
   LIBXML2_LIBS="-L/root/libxml2-install/lib -lxml2 -lz" \
   ZLIB_CFLAGS="-I${SYSROOT}/usr/include" \
   ZLIB_LIBS="-L${SYSROOT}/usr/lib/${TARGET}/${API} -lz" \
-  BZ2_CFLAGS="-I${SYSROOT}/usr/include" \
-  BZ2_LIBS="-L${SYSROOT}/usr/lib/${TARGET}/${API} -lbz2" \
+  BZ2_CFLAGS="-I/root/bzip2-install/include" \
+  BZ2_LIBS="-L/root/bzip2-install/lib -lbz2" \
   ../php-${PHP_VERSION}/configure \
     --host=${TARGET} --prefix=/root/php-android-output --enable-embed=shared \
     --with-openssl=/root/openssl-install --with-curl=/root/curl-install --with-sqlite3 --with-pdo-sqlite \
@@ -182,7 +193,7 @@ RUN for hdr in resolv_params.h resolv_private.h resolv_static.h resolv_stats.h; 
     done
 
 # Build and install PHP with embed SAPI
-RUN make -j7 LDFLAGS="-shared -Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384 -Wl,--whole-archive /root/openssl-install/lib/libssl.a /root/openssl-install/lib/libcrypto.a -Wl,--no-whole-archive -L/root/sqlite-amalgamation-${SQLITE3_VERSION} -L/root/curl-install/lib -L/root/onig-install/lib -L/root/libzip-install/lib -L/root/libxml2-install/lib -L${SYSROOT}/usr/lib/${TARGET}/${API} -lc -ldl -lz -lbz2" && make install
+RUN make -j7 LDFLAGS="-shared -Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384 -Wl,--whole-archive /root/openssl-install/lib/libssl.a /root/openssl-install/lib/libcrypto.a -Wl,--no-whole-archive -L/root/sqlite-amalgamation-${SQLITE3_VERSION} -L/root/curl-install/lib -L/root/onig-install/lib -L/root/libzip-install/lib -L/root/libxml2-install/lib -L/root/bzip2-install/lib -L${SYSROOT}/usr/lib/${TARGET}/${API} -lc -ldl -lz -lbz2" && make install
 
 # Prepare Artifacts
 RUN mkdir -p /root/install && \
