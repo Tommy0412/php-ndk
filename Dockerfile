@@ -22,7 +22,7 @@ WORKDIR /root
 # Build arguments (set by GitHub Actions matrix)
 ARG TARGET=aarch64-linux-android
 ARG API=28
-ARG PHP_VERSION=8.5.11
+ARG PHP_VERSION=8.4.27
 ENV SQLITE3_VERSION=3470200
 
 # Set up toolchain variables
